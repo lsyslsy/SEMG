@@ -4,7 +4,7 @@
     <Name>ProcessorExpert</Name>
     <SavedBy>Yao</SavedBy>
     <ModificationStamp>26</ModificationStamp>
-    <Date>2014-10-22</Date>
+    <Date>2014-11-05</Date>
     <IDE>Eclipse IDE</IDE>
     <PEversion>1.8.0.RT5_b1337-1809</PEversion>
   </Header>
@@ -51,7 +51,7 @@
     <Name>Cpu</Name>
     <CompNumb>2</CompNumb>
     <CompEnabled>true</CompEnabled>
-    <GenCodeMode>ALWAYS_WRITE</GenCodeMode>
+    <GenCodeMode>DONT_WRITE</GenCodeMode>
     <IconName>CPU_CHIP2</IconName>
     <UserFolderName />
     <Comment lines_count="0" />
@@ -4296,7 +4296,7 @@
     <Name>usb_device</Name>
     <CompNumb>27</CompNumb>
     <CompEnabled>true</CompEnabled>
-    <GenCodeMode>ALWAYS_WRITE</GenCodeMode>
+    <GenCodeMode>DONT_WRITE</GenCodeMode>
     <IconName />
     <UserFolderName>Referenced_Components</UserFolderName>
     <Comment lines_count="0" />
