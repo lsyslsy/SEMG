@@ -1,0 +1,14 @@
+######
+## CodeWarrior --  eclipse
+####
+
+.settings/
+.loadpath
+
+
+# External tool builders
+.externalToolBuilders/
+
+# CodeWarrior
+FLASH/
+#ProcessorExpert.pe

@@ -1,12 +1,11 @@
 #########
 #project
 ########
-pc/doc/html/
-root/Linux_yao/doc/html/
+**/doc/html/
 .svn/
 *.zip
 bak/
-doc/jquery*
+
 *.rar
 *.deb
 
@@ -149,36 +148,3 @@ ClientBin/
 *.x86_64
 *.hex
 
-######
-## eclipse
-####
-*.pydevproject
-.metadata
-.gradle
-bin/
-tmp/
-*.tmp
-*.bak
-*.swp
-*~.nib
-local.properties
-.settings/
-.loadpath
-
-# External tool builders
-.externalToolBuilders/
-
-# Locally stored "Eclipse launch configurations"
-*.launch
-
-# CDT-specific
-.cproject
-
-# PDT-specific
-.buildpath
-
-# sbteclipse plugin
-.target
-
-# TeXlipse plugin
-.texlipse
