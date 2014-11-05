@@ -1,7 +1,7 @@
 <GenerationInfo_G_C>
   <Options>
     <ProjectName>ProcessorExpert</ProjectName>
-    <ProjectDirectory>D:\Project\freescale\USB_AUDIO_DEVICE_MKL25Z128_PEx\</ProjectDirectory>
+    <ProjectDirectory>E:\SEMG\branch\SEMG_USB_KL25\</ProjectDirectory>
     <DestEventsDirectory>Sources\</DestEventsDirectory>
     <DestDriversSubDirectory>..\Generated_Code\</DestDriversSubDirectory>
     <DestDocumentationDirectory>Documentation\</DestDocumentationDirectory>
@@ -17,7 +17,7 @@
         <Line>PE_Const</Line>
         <Line>IO_Map</Line>
       </GenSharedModules>
-      <ShrdHeaderAge0>1163231772</ShrdHeaderAge0>
+      <ShrdHeaderAge0>1164277263</ShrdHeaderAge0>
       <ShrdCodeAge0>-1</ShrdCodeAge0>
       <ShrdAsemblAge0>-1</ShrdAsemblAge0>
       <ShrdHeaderAge1>1163231772</ShrdHeaderAge1>
@@ -54,21 +54,21 @@
         <Line>Generated_Code\Vectors.c</Line>
       </GenExtraFiles>
       <GenExtraFileSrcDir16>lib\doxygen\</GenExtraFileSrcDir16>
-      <XtraAge1>1163231772</XtraAge1>
-      <XtraAge2>1163231772</XtraAge2>
-      <XtraAge3>1163231772</XtraAge3>
-      <XtraAge4>1163231772</XtraAge4>
-      <XtraAge5>1163231772</XtraAge5>
-      <XtraAge6>1163231772</XtraAge6>
-      <XtraAge7>1163231772</XtraAge7>
-      <XtraAge8>1163231772</XtraAge8>
-      <XtraAge9>1163231772</XtraAge9>
-      <XtraAge10>1163231772</XtraAge10>
-      <XtraAge11>1163302607</XtraAge11>
-      <XtraAge12>1163231908</XtraAge12>
-      <XtraAge18>1163231772</XtraAge18>
-      <XtraAge19>1163231908</XtraAge19>
-      <XtraAge21>1163231908</XtraAge21>
+      <XtraAge1>1164277263</XtraAge1>
+      <XtraAge2>1164277263</XtraAge2>
+      <XtraAge3>1164277263</XtraAge3>
+      <XtraAge4>1164277141</XtraAge4>
+      <XtraAge5>1164277263</XtraAge5>
+      <XtraAge6>1164277263</XtraAge6>
+      <XtraAge7>1164277263</XtraAge7>
+      <XtraAge8>1164277263</XtraAge8>
+      <XtraAge9>1164277263</XtraAge9>
+      <XtraAge10>1164277263</XtraAge10>
+      <XtraAge11>-1</XtraAge11>
+      <XtraAge12>-1</XtraAge12>
+      <XtraAge18>1164277263</XtraAge18>
+      <XtraAge19>1164277263</XtraAge19>
+      <XtraAge21>1164277263</XtraAge21>
       <GenExtraFileType21>4</GenExtraFileType21>
       <GenExtraFileType20>4</GenExtraFileType20>
       <GenExtraFileType19>4</GenExtraFileType19>
@@ -117,7 +117,7 @@
     </GenFiles>
     <SignalListFile>Documentation\ProcessorExpert_SIGNALS.txt</SignalListFile>
     <DestinationCompiler>GNUC</DestinationCompiler>
-    <ProjectModificationStamp>25</ProjectModificationStamp>
+    <ProjectModificationStamp>27</ProjectModificationStamp>
   </Options>
   <CpuID_2>
     <Generated>true</Generated>
@@ -126,7 +126,7 @@
     <GenDriverVersion>01.04</GenDriverVersion>
     <GenEventModule>Events</GenEventModule>
     <HeaderAge>1163231772</HeaderAge>
-    <CodeAge>1163231908</CodeAge>
+    <CodeAge>1164277263</CodeAge>
     <AsemblAge>-1</AsemblAge>
     <GenNumMethods>10</GenNumMethods>
     <SetClockConfiguration>false</SetClockConfiguration>
@@ -202,8 +202,8 @@
     <GenComponentVersion>01.027</GenComponentVersion>
     <GenDriverVersion>01.00</GenDriverVersion>
     <GenEventModule />
-    <HeaderAge>1163231772</HeaderAge>
-    <CodeAge>1163231772</CodeAge>
+    <HeaderAge>1164277263</HeaderAge>
+    <CodeAge>1164277263</CodeAge>
     <AsemblAge>-1</AsemblAge>
     <GenNumMethods>43</GenNumMethods>
     <USB_Class_Init>true</USB_Class_Init>
@@ -383,8 +383,8 @@
       <GenComponentVersion>01.307</GenComponentVersion>
       <GenDriverVersion>01.09</GenDriverVersion>
       <GenEventModule>Events</GenEventModule>
-      <HeaderAge>1163231772</HeaderAge>
-      <CodeAge>1163231772</CodeAge>
+      <HeaderAge>-1</HeaderAge>
+      <CodeAge>-1</CodeAge>
       <AsemblAge>-1</AsemblAge>
       <GenNumMethods>38</GenNumMethods>
       <Init>true</Init>
@@ -771,8 +771,8 @@
     <GenComponentVersion>01.000</GenComponentVersion>
     <GenDriverVersion>01.00</GenDriverVersion>
     <GenEventModule />
-    <HeaderAge>1163231908</HeaderAge>
-    <CodeAge>1163302408</CodeAge>
+    <HeaderAge>-1</HeaderAge>
+    <CodeAge>-1</CodeAge>
     <AsemblAge>-1</AsemblAge>
     <GenNumMethods>82</GenNumMethods>
     <usb_class_audio_init_ipipe>false</usb_class_audio_init_ipipe>
