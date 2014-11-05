@@ -1,0 +1,119 @@
+﻿#pragma once
+#include <windows.h>
+
+
+
+/*************** constant *****************/
+//#define TIMES_TO_INQUIRE 10
+#define MAX_TURN_BYTE			32*1024
+#define MAX_CHANNEL_NUM	128
+#define POINT_NUM 100
+#define CYCLICAL_BUFFER_SIZE	 10
+
+
+enum dev_stat {
+	dev_NONE,
+	dev_START,
+	dev_CONNECT,
+	dev_UNCONNECT,
+	dev_ERROR			
+};
+
+enum error_stat {
+    SOCKET_OK,
+	SOCKET_DATA_WRONG,
+	SOCKET_CONNECT_TIMEOUT,
+	SOCKET_DATA_TIMEOUT,
+	SOCKET_INIT_ERROR
+};
+
+enum protocol_dir_stat {
+	PSTAT_NONE,
+	PSTAT_SEND,
+	PSTAT_RECV
+	//PSTAT_BOTH
+};
+
+enum protocol_cmd_stat {
+	PSTAT_NO_DEVICE			= 0xFF,
+	PSTAT_DEVICE_OPEN,
+	PSTAT_INIT_SOCKET,
+	PSTAT_SHAKEHAND,		//= 0x01,
+	PSTAT_DATA,
+    PSTAT_SET_RATE
+};
+
+//!< 工频和基线漂移的处理，两者的选项相或
+enum filter_selector {
+	FILTER_NONE = 1,		//<! no 50hz filter
+	FILTER_BUTTERWORTH ,
+	FILTER_FOURIER,
+	FILTER_RLS,
+	FILTER_BASELINE_NONE =0x0100,		//<! don't deal with baseline bias
+	FILTER_BASELINE_YES	=0x0200			//<! filter the baseline bias
+};
+
+struct sEMGdata{
+    double point[POINT_NUM];
+};
+
+struct raw_sEMGdata{
+    double point[POINT_NUM];
+};
+
+struct cyc_buffer {	/* internal cyclical buffer (one channel) */
+	//unsigned char packet_class;     
+	unsigned int valid_amount;		                        /* valid amount of data */	
+	unsigned int header;			                        /* header pointer of buffer */
+	unsigned char channel_id;			                    /* channel information */
+	struct sEMGdata data[CYCLICAL_BUFFER_SIZE];				/* proccessed data array */
+    struct raw_sEMGdata raw_data[CYCLICAL_BUFFER_SIZE];
+};
+
+struct protocol_stat {
+	unsigned int cmd_stat;		/* the next comand state */
+	unsigned int sub_stat;		/* sub type stat mainly used for cmd */
+	//unsigned int inquire;		/* times to indicate the despired times */
+	int error;
+	unsigned char *pdata;		/* packet data */
+};
+
+struct thread_args { /* auxiliary thread arguments */
+	BOOL threadrun;
+	CRITICAL_SECTION cs;
+	BOOL is_set;
+	//unsigned int num[MAX_sEMG_CHANNEL];
+	//struct sample_set set;
+};
+
+struct dev_info {	/* device information */
+	unsigned int  version;
+	unsigned char channel_num;   /* channel number in root */
+	unsigned char AD_rate;  /*AD rate*/
+	int dev_stat;					/* current device stat */
+	char ip[20];						/* device ip addr*/
+	HANDLE hdev;					/* device handle */
+};
+
+
+
+
+HANDLE start_comu_thread(unsigned int *tid, struct thread_args *args);
+void stop_comu_thread(HANDLE ht, struct thread_args *args);
+//UINT WINAPI comu_thread_proc(struct thread_args *args);
+UINT WINAPI comu_thread_proc(void *pargs);
+
+void init_dll(void);
+BOOL init_socket(struct dev_info *pdi,struct protocol_stat *pstat);
+
+//BOOL shakehand_sec(struct dev_info *pdi, struct protocol_stat *pstat);
+BOOL protocol_handler(struct dev_info *pdi, BOOL *prun);
+BOOL shakehand(struct dev_info *pdi, struct protocol_stat *pstat);
+BOOL update_data(struct dev_info *pdi, struct protocol_stat *pstat);
+void update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat);
+void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num);
+BOOL Is_connect_ready(void);
+BOOL Is_send_ready(void);
+BOOL Is_recv_ready(void);
+BOOL error_handler(struct protocol_stat *pstat);
+void uninit(void);
