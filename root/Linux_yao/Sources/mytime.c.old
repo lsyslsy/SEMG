@@ -1,0 +1,131 @@
+/*
+ * time.c: The time file for root board of the sEMG project
+ *
+ *	All right reserved.
+ *
+ *	Created: HY@2013.5.10
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/time.h>
+#include "../Headers/main.h"
+#include <time.h>
+#include "../Headers/mytime.h"
+#include "../Headers/led.h"
+#include <errno.h>
+  
+extern pthread_cond_t cond_tick;
+timer_t timerid;
+//#ifdef ARM_VERSIO
+extern int GPIO_L8_fd;
+//#endif
+#define POSIX_TIMER
+
+#ifdef POSIX_TIMER
+void timeout_info(int signo)
+{ 
+   
+//#ifdef ARM_VERSION
+    ioctl(GPIO_L8_fd,0,0); //每周期取反，中断
+	pthread_cond_broadcast(&cond_tick);//broadcast the condition
+//#endif
+   int k=0;
+   k= timer_getoverrun(timerid);
+  // printf("the timer lost %d signals\n",k);
+  //be sure to run in main thread
+ //printf("the timer run in pid is %d\n",pthread_self());
+//usleep(1);//加了也没用
+
+    //printf("100ms time is up!\n");
+}
+ 	 
+/* init sigaction */
+void init_sigaction(void)
+{
+     struct sigaction act;	 
+     act.sa_handler = timeout_info;//指定信号处理海曙
+     act.sa_flags   = 0;
+     sigemptyset(&act.sa_mask);
+     sigaction(SIGUSR1, &act, NULL);
+}
+ 	 
+/* init */
+void init_timer(void)
+{
+    struct sigevent sev;  
+    
+    sev.sigev_notify = SIGEV_SIGNAL;  
+    sev.sigev_signo = SIGUSR1;//SIGALRM;  
+    sev.sigev_value.sival_ptr = &timerid;  
+    //sev.sigev_notify_function = timeout_info;  
+    sev.sigev_notify_attributes = NULL;  
+  
+    /* create timer */  
+    if (timer_create (CLOCK_REALTIME, &sev, &timerid) == -1)  
+    {  
+        perror("timer_create, error");  
+        //return;  
+    }  
+  
+   // if (*timerid == -1)  
+      //  printf("timer_create error, id is -1\n");  
+	
+	struct itimerspec its;
+     /* Start the timer */  
+    its.it_value.tv_sec = sEMG_tick_sec;  
+    its.it_value.tv_nsec = sEMG_tick_usec;  
+  
+    its.it_interval.tv_sec = sEMG_tick_sec;  
+    its.it_interval.tv_nsec = sEMG_tick_usec*1000;  
+  
+    if (timer_settime (timerid, 0, &its, NULL) == -1)  
+    {  
+        perror("timer_settime error");  
+    }  
+
+   
+}
+
+
+
+
+#else
+//这个信号处理函数被主线程给调用
+void timeout_info(int signo)
+{ 
+   pthread_cond_broadcast(&cond_tick);//broadcast the condition
+#ifdef ARM_VERSION
+    ioctl(GPIO_L8_fd,0,0); //每周期取反，中断
+#endif
+ //printf("the timer run in pid is %d\n",pthread_self());
+//usleep(1);//加了也没用
+
+    //printf("100ms time is up!\n");
+}
+ 	 
+/* init sigaction */
+void init_sigaction(void)
+{
+     struct sigaction act;	 
+     act.sa_handler = timeout_info;//指定信号处理海曙
+     act.sa_flags   = 0;
+     sigemptyset(&act.sa_mask);
+     sigaction(SIGALRM, &act, NULL);
+}
+ 	 
+/* init */
+void init_timer(void)
+{
+     struct itimerval val;
+     //it_value:current time
+     val.it_value.tv_sec = sEMG_tick_sec;  //0
+     val.it_value.tv_usec = sEMG_tick_usec;  //100ms
+     //it_interval:the timer interval
+     val.it_interval.tv_sec = sEMG_tick_sec;  //0
+     val.it_interval.tv_usec = sEMG_tick_usec;  //100ms
+     setitimer(ITIMER_REAL, &val, NULL);//timer start
+}
+
+#endif
+ 	
