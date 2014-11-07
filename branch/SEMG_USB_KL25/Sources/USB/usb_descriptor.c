@@ -25,15 +25,20 @@
 /*****************************************************************************
 * Constant and Macro's
 *****************************************************************************/
+#define SEMG_ISOC_IN_ENDPOINT 1
+#define SEMG_ISOC_IN_PACKET_SIZE 1023
+
+
+
 /* structure containing details of all the endpoints used by this device */
 const USB_ENDPOINTS usb_desc_ep ={
     AUDIO_DESC_ENDPOINT_COUNT,
     {
         {
-            1,
+            SEMG_ISOC_IN_ENDPOINT,
             USB_ISOCHRONOUS_PIPE,
             USB_SEND,
-            256,
+            SEMG_ISOC_IN_PACKET_SIZE,
         },
     }
 };

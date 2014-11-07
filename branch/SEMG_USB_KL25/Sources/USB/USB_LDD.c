@@ -59,7 +59,7 @@
 **                  Interrupt IN transfer                  : Disabled
 **                  Isochronous OUT  transfer              : Disabled
 **                  Isochronous IN  transfer               : Enabled
-**                    Max. packet size                     : 16
+**                    Max. packet size                     : 1023
 **                    Max. queue size                      : 1
 **                EP 2                                     : Disabled
 **                EP 3                                     : Disabled
@@ -166,6 +166,11 @@
 #define USB_LDD_BD_LE_DATA1                       0x40000000U
 #define USB_LDD_BD_LE_STALL                       0x04000000U
 
+/* =============================================================================
+**    |  Endpoint   |           EP0           |            EP1          |    ...
+**    |   EP_IDX    |    OUT     |    IN      |    OUT     |    IN      |    ...
+**    |   BD_IDX    | odd | even | odd | even | odd | even | odd | even |    ...
+** ============================================================================ */
 #define MAX_EP_IDX                                0x03u
 #define MAX_BD_IDX                                0x07u
 
