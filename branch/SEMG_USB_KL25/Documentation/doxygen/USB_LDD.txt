@@ -439,7 +439,7 @@ registers of the peripheral(s) configured by the component.
 **                  Interrupt IN transfer                  : Disabled
 **                  Isochronous OUT  transfer              : Disabled
 **                  Isochronous IN  transfer               : Enabled
-**                    Max. packet size                     : 16
+**                    Max. packet size                     : 1023
 **                    Max. queue size                      : 1
 **                EP 2                                     : Disabled
 **                EP 3                                     : Disabled

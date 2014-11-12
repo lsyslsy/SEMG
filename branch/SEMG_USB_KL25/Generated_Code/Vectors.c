@@ -5,7 +5,7 @@
 **     Processor   : MKL25Z128VLK4
 **     Version     : Component 01.025, Driver 01.04, CPU db: 3.00.000
 **     Compiler    : GNU C Compiler
-**     Date/Time   : 2014-10-21, 16:20, # CodeGen: 32
+**     Date/Time   : 2014-11-11, 16:35, # CodeGen: 41
 **     Abstract    :
 **
 **     Settings    :
@@ -31,7 +31,6 @@
   #include "Cpu.h"
   #include "usb_device.h"
   #include "USB_LDD.h"
-  #include "usb_audio.h"
   #include "Events.h"
 
 
