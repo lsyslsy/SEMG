@@ -95,7 +95,7 @@
 #define USB_AUDIO_DESCRIPTOR                (0x25)
 #define USB_REPORT_DESCRIPTOR               (0x22)
 
-#define USB_MAX_SUPPORTED_INTERFACES        (0x02)
+#define USB_MAX_SUPPORTED_INTERFACES        (0x01)
 /******************************************************************************
 * Types
 *****************************************************************************/
