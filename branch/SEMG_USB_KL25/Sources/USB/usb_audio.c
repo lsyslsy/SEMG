@@ -312,6 +312,7 @@ void* val
     }
 }
 
+
 /*
 ** ===================================================================
 **     Method      :  USB_Set_Cur_Audio_Feature_Unit (component USB_AUDIO_CLASS)
@@ -333,9 +334,10 @@ USB_PACKET_SIZE *size
 
     switch(control_selector)
     {
+         /*
     case MUTE_CONTROL:
         status = USB_Desc_Set_Cur_Mute(controller_ID,interface,data, size);
-        break;
+        break;     
     case VOLUME_CONTROL:
         status = USB_Desc_Set_Cur_Volume(controller_ID,interface,data,size);
         break;
@@ -351,9 +353,13 @@ USB_PACKET_SIZE *size
     case GRAPHIC_EQUALIZER_CONTROL:
         status=USB_Desc_Set_Cur_Graphic_Equalizer(controller_ID,interface,data,size);
         break;
+        */
+    
     case AUTOMATIC_GAIN_CONTROL:
         status = USB_Desc_Set_Cur_Automatic_Gain(controller_ID,interface,data,size);
         break;
+        
+        /*
     case DELAY_CONTROL:
         status = USB_Desc_Set_Cur_Delay(controller_ID,interface,data,size);
         break;
@@ -363,6 +369,7 @@ USB_PACKET_SIZE *size
     case LOUDNESS_CONTROL:
         status = USB_Desc_Set_Cur_Loudness(controller_ID,interface,data,size);
         break;
+        */
     default:
         break;
     }
@@ -378,6 +385,7 @@ USB_PACKET_SIZE *size
 **         This method is internal. It is used by Processor Expert only.
 ** ===================================================================
 */
+/*
 static uint_8 USB_Set_Min_Audio_Feature_Unit(
 uint_8 controller_ID,
 uint_8 interface,
@@ -413,6 +421,7 @@ USB_PACKET_SIZE *size
     }
     return status;
 }
+*/
 
 /*
 ** ===================================================================
@@ -423,6 +432,7 @@ USB_PACKET_SIZE *size
 **         This method is internal. It is used by Processor Expert only.
 ** ===================================================================
 */
+/*
 static uint_8 USB_Set_Max_Audio_Feature_Unit(
 uint_8 controller_ID,
 uint_8 interface,
@@ -438,6 +448,7 @@ USB_PACKET_SIZE *size
     case VOLUME_CONTROL:
         status = USB_Desc_Set_Max_Volume(controller_ID,interface,data,size);
         break;
+        
     case BASS_CONTROL:
         status = USB_Desc_Set_Max_Bass(controller_ID,interface,data,size);
         break;
@@ -458,6 +469,7 @@ USB_PACKET_SIZE *size
     }
     return status;
 }
+*/
 
 /*
 ** ===================================================================
@@ -468,6 +480,7 @@ USB_PACKET_SIZE *size
 **         This method is internal. It is used by Processor Expert only.
 ** ===================================================================
 */
+/*
 static uint_8 USB_Set_Res_Audio_Feature_Unit(
 uint_8 controller_ID,
 uint_8 interface,
@@ -477,7 +490,6 @@ USB_PACKET_SIZE *size
 )
 {
     uint_8 status = USBERR_INVALID_REQ_TYPE;
-
     switch(control_selector)
     {
     case VOLUME_CONTROL:
@@ -503,6 +515,7 @@ USB_PACKET_SIZE *size
     }
     return status;
 }
+*/
 
 /*
 ** ===================================================================
@@ -525,9 +538,11 @@ USB_PACKET_SIZE *size
     /* check control selector */
     switch(control_selector)
     {
+        /*
     case MUTE_CONTROL:
         status = USB_Desc_Get_Cur_Mute(controller_ID,interface,data,size);
         break;
+        
     case VOLUME_CONTROL:
         status = USB_Desc_Get_Cur_Volume(controller_ID,interface,data,size);
         break;
@@ -543,9 +558,12 @@ USB_PACKET_SIZE *size
     case GRAPHIC_EQUALIZER_CONTROL:
         status = USB_Desc_Get_Cur_Graphic_Equalizer(controller_ID,interface,data,size);
         break;
+        */
+        
     case AUTOMATIC_GAIN_CONTROL:
         status = USB_Desc_Get_Cur_Automatic_Gain(controller_ID,interface,data,size);
         break;
+        /*
     case DELAY_CONTROL:
         status = USB_Desc_Get_Cur_Delay(controller_ID,interface,data,size);
         break;
@@ -555,6 +573,7 @@ USB_PACKET_SIZE *size
     case LOUDNESS_CONTROL:
         status = USB_Desc_Get_Cur_Loudness(controller_ID,interface,data,size);
         break;
+        */
     default:
         break;
     }
@@ -570,6 +589,7 @@ USB_PACKET_SIZE *size
 **         This method is internal. It is used by Processor Expert only.
 ** ===================================================================
 */
+/*
 static uint_8 USB_Get_Min_Audio_Feature_Unit(
 uint_8 controller_ID,
 uint_8 interface,
@@ -604,6 +624,7 @@ USB_PACKET_SIZE *size
     }
     return status;
 }
+*/
 
 /*
 ** ===================================================================
@@ -614,6 +635,7 @@ USB_PACKET_SIZE *size
 **         This method is internal. It is used by Processor Expert only.
 ** ===================================================================
 */
+/*
 static uint_8 USB_Get_Max_Audio_Feature_Unit(
 uint_8 controller_ID,
 uint_8 interface,
@@ -648,7 +670,7 @@ USB_PACKET_SIZE *size
     }
     return status;
 }
-
+*/
 /*
 ** ===================================================================
 **     Method      :  USB_Get_Res_Audio_Feature_Unit (component USB_AUDIO_CLASS)
@@ -658,6 +680,7 @@ USB_PACKET_SIZE *size
 **         This method is internal. It is used by Processor Expert only.
 ** ===================================================================
 */
+/*
 static uint_8 USB_Get_Res_Audio_Feature_Unit(
 uint_8 controller_ID,
 uint_8 interface,
@@ -692,7 +715,7 @@ USB_PACKET_SIZE *size
     }
     return status;
 }
-
+*/
 /*
 ** ===================================================================
 **     Method      :  USB_Audio_Set_Control_Terminal (component USB_AUDIO_CLASS)
@@ -788,18 +811,17 @@ USB_PACKET_SIZE *size
         /*Set current attributes of Feature Unit*/
         status = USB_Set_Cur_Audio_Feature_Unit(controller_ID,interface,control_selector,data,size);
         break;
+        /*
     case SET_MIN:
-        /*Set Min attributes of Feature Unit*/
         status = USB_Set_Min_Audio_Feature_Unit(controller_ID,interface,control_selector,data,size);
         break;
     case SET_MAX:
-        /*Set Max attributes of Feature Unit*/
         status = USB_Set_Max_Audio_Feature_Unit(controller_ID,interface,control_selector,data,size);
         break;
     case SET_RES:
-        /*Set Resolution attributes of Feature Unit*/
         status = USB_Set_Res_Audio_Feature_Unit(controller_ID,interface,control_selector,data,size);
         break;
+        */
     default:
         break;
     }
@@ -832,6 +854,7 @@ USB_PACKET_SIZE *size
     case GET_CUR:
         status = USB_Get_Cur_Audio_Feature_Unit(controller_ID,interface,control_selector,data,size);
         break;
+        /*
     case GET_MIN:
         status = USB_Get_Min_Audio_Feature_Unit(controller_ID,interface,control_selector,data,size);
         break;
@@ -841,6 +864,7 @@ USB_PACKET_SIZE *size
     case GET_RES:
         status = USB_Get_Res_Audio_Feature_Unit(controller_ID,interface,control_selector,data,size);
         break;
+        */
     default:
         break;
     }
@@ -974,13 +998,16 @@ USB_PACKET_SIZE *size
         case SAMPLING_FREQ_CONTROL:
             status = USB_Desc_Set_Cur_Sampling_Frequency(controller_ID,interface,data,size);
             break;
+            /*
         case PITCH_CONTROL:
             status = USB_Desc_Set_Cur_Pitch(controller_ID,interface,data,size);
             break;
+            */
         default:
             break;
         }
         break;
+        /*
     case SET_MIN:
         *size = 0;
         switch(control_selector)
@@ -1014,6 +1041,7 @@ USB_PACKET_SIZE *size
             break;
         }
         break;
+        */
     case SET_MEM:
         *size = setup_packet->length;
         offset=setup_packet->value;
@@ -1059,13 +1087,17 @@ USB_PACKET_SIZE *size
         case SAMPLING_FREQ_CONTROL:
             status = USB_Desc_Get_Cur_Sampling_Frequency(controller_ID,interface,data,size);
             break;
+            /*
         case PITCH_CONTROL:
             status = USB_Desc_Get_Cur_Pitch(controller_ID,interface,data,size);
             break;
+            */
         default:
             break;
         }
         break;
+        
+        /*
     case GET_MIN:
         switch(control_selector)
         {
@@ -1096,6 +1128,7 @@ USB_PACKET_SIZE *size
             break;
         }
         break;
+        */
     case GET_MEM:
         *size = setup_packet->length;
         offset=setup_packet->value;
