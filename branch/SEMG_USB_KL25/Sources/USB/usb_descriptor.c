@@ -43,7 +43,19 @@ const USB_ENDPOINTS usb_desc_ep ={
     }
 };
 
-
+/* *********************************************************************
+* definition a struct of Input/output or Feature Unit
+************************************************************************ */
+/* Struct of Terminal Input /Output or Feature Unit */
+ USB_AUDIO_UNITS usb_audio_unit = {
+    AUDIO_UNIT_COUNT,
+    {
+        {0x01,AUDIO_CONTROL_INPUT_TERMINAL},
+        {0x02,AUDIO_CONTROL_FEATURE_UNIT},
+        {0x03,AUDIO_CONTROL_OUTPUT_TERMINAL},
+    }
+};
+ 
 /* Device Descriptor */
 uint_8 g_device_descriptor[DEVICE_DESCRIPTOR_SIZE]=
 {
@@ -280,6 +292,9 @@ static uint_8 g_alternate_interface[USB_MAX_SUPPORTED_INTERFACES];
 
 /* Current automatic gain variables */
 static uint_8 g_cur_automatic_gain[USB_MAX_SUPPORTED_INTERFACES] = {0x01};
+
+/* Copy protect variables */
+static uint_8 g_copy_protect[USB_MAX_SUPPORTED_INTERFACES]={0x01};
 
 /* Sampling frequency variables */
 static uint_8 g_cur_sampling_frequency[3] = {0x00,0x00,0x01};
@@ -550,6 +565,99 @@ uint_8 controller_ID
     return (void*)&usb_desc_ep;
 }
 
+
+/*
+** ===================================================================
+**     Method      :  usb_audio_ (component USB_AUDIO_CLASS)
+**
+**     Description :
+**         The function returns with the list of all Input Terminal,
+**         Output Terminal and Feature Unit
+**     Parameters  :
+**         NAME            - DESCRIPTION
+**         controller_ID   - 
+**     Returns     :
+**         ---             - Error code
+** ===================================================================
+*/
+void* USB_Desc_Get_Entities(
+uint_8 controller_ID
+)
+{
+    UNUSED (controller_ID);
+    return (void*)&usb_audio_unit;
+}
+
+/*
+** ===================================================================
+**     Method      :  usb_audio_ (component USB_AUDIO_CLASS)
+**
+**     Description :
+**         The function is called in response to Set Terminal Control
+**         Request
+**     Parameters  :
+**         NAME            - DESCRIPTION
+**         controller_ID   - 
+**         interface       - 
+**       * data            - Pointer to Data
+**       * size            - Pointer to size of data
+**     Returns     :
+**         ---             - Error code
+** ===================================================================
+*/
+uint_8 USB_Desc_Set_Copy_Protect(
+uint_8 controller_ID,
+uint_8 interface,
+uint_8_ptr *data,
+USB_PACKET_SIZE *size
+)
+{
+    UNUSED (controller_ID);
+    UNUSED (size);
+    /* if interface valid */
+    if(interface < USB_MAX_SUPPORTED_INTERFACES){
+        /* set copy protect data*/
+        g_copy_protect[interface] = **data;
+        return USB_OK;
+    }
+    return USBERR_INVALID_REQ_TYPE;
+}
+
+/*
+** ===================================================================
+**     Method      :  usb_audio_ (component USB_AUDIO_CLASS)
+**
+**     Description :
+**         The function is called in response to Get Terminal Control
+**         Request
+**     Parameters  :
+**         NAME            - DESCRIPTION
+**         controller_ID   - 
+**         interface       - 
+**       * data            - Pointer to Data
+**       * size            - Pointer to size of data
+**     Returns     :
+**         ---             - Error code
+** ===================================================================
+*/
+uint_8 USB_Desc_Get_Copy_Protect(
+uint_8 controller_ID,
+uint_8 interface,
+uint_8_ptr *data,
+USB_PACKET_SIZE *size
+)
+{
+    UNUSED (controller_ID);
+    UNUSED (size);
+    /* if interface valid */
+    if(interface < USB_MAX_SUPPORTED_INTERFACES){
+        /* get copy protect data*/
+        *size=1;
+        *data=&g_copy_protect[interface];
+        return USB_OK;
+    }
+    return USBERR_INVALID_REQ_TYPE;
+}
 
 /*
 ** ===================================================================
