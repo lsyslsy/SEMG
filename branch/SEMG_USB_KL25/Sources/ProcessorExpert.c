@@ -21,7 +21,6 @@
 #include "Events.h"
 #include "usb_device.h"
 #include "USB_LDD.h"
-#include "usb_audio.h"
 /* Including shared modules, which are used for whole project */
 #include "PE_Types.h"
 #include "PE_Error.h"
