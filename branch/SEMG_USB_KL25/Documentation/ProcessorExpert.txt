@@ -66,12 +66,6 @@ Module "usb_device" (component Usb_Device)
    - usb_device_USB_Desc_Remote_Wakeup -This function returns remote wakeup is supported or not
    - usb_device_USB_Desc_Get_Endpoints -This function returns the information about all the non control endpoints implemented
 
-Module "usb_audio" (component USB_AUDIO_CLASS)
-   - usb_audio_USB_Class_Audio_Init -The funtion initializes the Device and Controller layer
-   - usb_audio_USB_Class_Audio_DeInit -The funtion de-initializes the Device and Controller layer
-   - usb_audio_USB_Class_Audio_Send_Data -This fucntion is used by Application to send data through Audio class
-   - usb_audio_USB_Class_Audio_Recv_Data -This function receives Data from Host.
-
 Module "Cpu"       (component MKL25Z128LK4)
 
 ===================================================================================
