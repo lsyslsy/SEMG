@@ -11,10 +11,15 @@
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
 #include <linux/mm.h>
+#include <linux/module.h>
+#include <linux/kref.h>
+#include <linux/slab.h>
+
+#include <asm/atomic.h>
 
 //TODO
-#define USB_SEMG_VENDOR_ID 
-#define USB_SEMG_PRODUCT_ID
+#define USB_SEMG_VENDOR_ID 		0x05AC
+#define USB_SEMG_PRODUCT_ID 	0x1111
 
 #define SEMG_FRAME_SIZE 		3257
 #define ISOC_IN_BUFFER_SIZE 	4096		/* 页大小为4096，验证过 */
@@ -32,7 +37,7 @@ MODULE_DEVICE_TABLE(usb, semg_supported_table);
 struct usb_semg {
 	atomic_t open_cnt; 					/* 剩余可打开次数，仅可打开一次，每打开一次减1 */
 	struct usb_device 	*udev;			/* usb device */
-	struct usb_interface 	*interface  /* usb interface 的引用*/
+	struct usb_interface 	*interface;  /* usb interface 的引用*/
 	__u8            isoc_in_endpointAddr;
 	size_t 			isoc_in_size;		/* the size of the receive buffer */
 	size_t			isoc_in_filled;		/* number of bytes in the buffer */
@@ -40,29 +45,47 @@ struct usb_semg {
 	size_t 			isoc_in_packetsize;		/* Max Packet size of isoc endpoint */
 	size_t 			isoc_in_npackets;	/* number of packets */
 	void 	*isoc_in_buffer;
-	void 	*isoc_in_buffer_dma;
+	dma_addr_t	isoc_in_buffer_dma;
 	struct urb 		*isoc_in_urb;		/* 用来读取数据的urb*/
 	struct completion 	isoc_in_completion; 	/* completion for read */
 	struct kref 	kref;				/* 设备引用计数 */
 	//atomic_t /* 跟踪打开计数 */
 	struct mutex 	io_mutex; 			/* 用于读写，断开之间的同步 */
 };
-#define to_semg_dev(p) container(p, struct usb_semg, kref)
+#define to_semg_dev(p) container_of(p, struct usb_semg, kref)
 
 static struct usb_driver semg_driver;//static类型的前向声明，长见识了吧。因为后面也有定义并初始化了	
 
-static const struct file_operations semg_fops = {
-	.owner =	THIS_MODULE,
-	.read = 	semg_read,
-	.write = 	semg_write,
-	.open = 	semg_open,
-	.release = 	semg_release,
-	.flush = 	semg_flush
-};
+static void semg_delete(struct kref *kref) {
+	struct usb_semg *dev = to_semg_dev(kref);
+
+	usb_free_urb(dev->isoc_in_urb);
+	usb_put_dev(dev->udev);
+	usb_free_coherent(dev->udev, dev->isoc_in_size, dev->isoc_in_buffer, //函数会处理isoc_in_buffer==NULl 的情况
+					dev->isoc_in_buffer_dma);
+}
+
 
 static void semg_read_isoc_callback(struct urb *urb)
 {
 	struct usb_semg *dev = urb->context;
+
+	spin_lock(&dev->err_lock);
+	/* sync/async unlink faults aren't errors */
+	//TODO
+	if (urb->status) {
+		if (!(urb->status == -ENOENT ||
+		    urb->status == -ECONNRESET ||
+		    urb->status == -ESHUTDOWN))
+			err("%s - nonzero write bulk status received: %d",
+			    __func__, urb->status);
+
+		dev->errors = urb->status;
+	} else {
+		dev->bulk_in_filled = urb->actual_length;
+	}
+	
+	spin_unlock(&dev->err_lock);
 	complete(&dev->isoc_in_completion);
 }
 
@@ -72,7 +95,7 @@ static void semg_read_isoc_callback(struct urb *urb)
 static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count, loff_t *pos) {
 
 	struct usb_semg *dev = (struct usb_semg *)file->private_data;
-	struct urb  *urb = dev->urb;
+	struct urb  *urb = dev->isoc_in_urb;
 	unsigned int i;
 	int retval = 0;
 	
@@ -80,13 +103,13 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 
 	/* 初始化urb */
 	urb->dev = dev->udev;
-	urb->pipe = usb_recvisocpipe(dev->udev, dev->isoc_in_endpointAddr);
+	urb->pipe = usb_rcvisocpipe(dev->udev, dev->isoc_in_endpointAddr);
 	urb->interval = 1;///TODO:not sure//yes sure
 	urb->context = dev;
 	urb->complete = semg_read_isoc_callback;
 	urb->transfer_buffer = dev->isoc_in_buffer;		 
 	urb->transfer_dma = dev->isoc_in_buffer_dma;
-	urb->number_of_packets = dev->isoc_in_npackets 
+	urb->number_of_packets = dev->isoc_in_npackets; 
 	urb->transfer_buffer_length = dev->isoc_in_size;      //TODO   是不是该使用SEMG_FRAME_SIZE;
 	urb->transfer_flags = URB_ISO_ASAP | URB_NO_TRANSFER_DMA_MAP;//尽早开始同步传输，优选使用DMA传输
 	/* 设置isoc各帧的缓冲区位移，每帧预计长度 */
@@ -98,14 +121,16 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	/* submit urb */
 	retval = usb_submit_urb(urb, GFP_KERNEL);
 	if (retval < 0) {
-		err("Failed to submit in urb");
+		 dev_err(&dev->interface->dev, 
+		 			"%s - failed submitting read urb, error %d\n",
+                    __func__, retval);
 		goto out;
 	}
 
 	/*wait for read operation complete*/
 	wait_for_completion(&dev->isoc_in_completion);
 	//TODO
-	if((dev->isoc_in_filled != SEMG_FRAME_SIZE) || (SEMG_FRAME_SIZE != count) {
+	if((dev->isoc_in_filled != SEMG_FRAME_SIZE) || (SEMG_FRAME_SIZE != count)) {
 		retval = -1;
 		goto out;
 	}
@@ -123,7 +148,7 @@ out:
 
 static ssize_t semg_write(struct file *file, const char __user *uesr_buf, size_t count, loff_t *f_pos) {
 
-
+	return -1;
 }
 static int semg_open(struct inode *inode, struct file *file) {
 	struct usb_interface *interface;
@@ -132,14 +157,14 @@ static int semg_open(struct inode *inode, struct file *file) {
 	int subminor;
 
 	subminor = iminor(inode);//获取次设备号
-	interface = usb_find_interface(&semg_driver, subminor)；
-	if (!inteface) {				//可能usb设备刚被拔了
-		err("%s - error, can't find semg usb device for minor %d", __func__, subminor);
+	interface = usb_find_interface(&semg_driver, subminor);
+	if (!interface) {				//可能usb设备刚被拔了
+		pr_err("%s - error, can't find semg usb device for minor %d", __func__, subminor);
 		retval = -ENODEV;
 		goto error;
 	}
 
-	dev = usb_get_infdata(interface); //可能usb设备刚被拔了
+	dev = usb_get_intfdata(interface); //可能usb设备刚被拔了
 	if(!dev) {
 		retval = -ENODEV;
 		goto error;
@@ -154,8 +179,8 @@ static int semg_open(struct inode *inode, struct file *file) {
 	retval = usb_autopm_get_interface(interface);	/* 阻止usb设备autosuspended */
 	if (retval) {
 		mutex_unlock(&dev->io_mutex);
-		kref_put(&dev->kref, skel_delete);
-		goto exit;
+		kref_put(&dev->kref, semg_delete);
+		goto error;
 	}
 
 	file->private_data = dev;  //save dev for other functions use
@@ -186,88 +211,94 @@ static int semg_release(struct inode *inode, struct file *file) {
 	mutex_unlock(&dev->io_mutex);
 	
 	/* decrement the count on our device */
-	kref_put(&dev->kref, skel_delete);
+	kref_put(&dev->kref, semg_delete);
 	return 0;
 }
 
 static int semg_flush(struct file *file, fl_owner_t id) {
-
+	return 0;
 }
 
+static const struct file_operations semg_fops = {
+	.owner =	THIS_MODULE,
+	.read = 	semg_read,
+	.write = 	semg_write,
+	.open = 	semg_open,
+	.release = 	semg_release,
+	.flush = 	semg_flush
+};
 static struct usb_class_driver semg_class = {
-	.name = "semg%d",		/* %d为设备编号*/
+	.name = "semg-usb%d",		/* %d为设备编号*/
 	.fops = &semg_fops,
 	.minor_base = USB_SEMG_MINOR_BASE
 };
 
-
-
 //TODO:
-static int semg_probe(struct_interface *inf, 
+static int semg_probe(struct usb_interface *interface, 
 				const struct usb_device_id *id) {
 	struct usb_semg *dev;
 	struct usb_host_interface *iface_desc;
 	struct usb_endpoint_descriptor *endpoint;
-	int retval = 0;
+	int retval = -ENOMEM, i;
 	unsigned int ep_max_size = 0;
 
 	/* 分配设备并初始化 */
 	dev = (struct usb_semg *)kzalloc(sizeof(struct usb_semg), GFP_KERNEL);
 	if (!dev) {
-		err("Out of Memory");
+		 dev_err(&interface->dev, "Out of memory\n");
 		goto error;
 	}
 
 	/* usb_get_dev 用于内核中增加对usb_device的引用 */
-	dev->udev = usb_get_dev(interface_to_usbdev(inf));
-	dev->interface = inf;
+	dev->udev = usb_get_dev(interface_to_usbdev(interface));
+	dev->interface = interface;
 
 	mutex_init(&dev->io_mutex);
 	init_completion(&dev->isoc_in_completion);
-	atominc_set(&dev->open_cnt, 1);			/* only can be opened once */ 
+	atomic_set(&dev->open_cnt, 1);			/* only can be opened once */ 
 	kref_init(&dev->kref);
 
 	iface_desc = interface->cur_altsetting;
-	for (i = 0; i < iface_desc->desc.bNumEndpoint; i++) {
-		endpoint = iface_desc->endpoint[i].desc;
+	for (i = 0; i < iface_desc->desc.bNumEndpoints; i++) {
+		endpoint = &iface_desc->endpoint[i].desc;
 		if (!dev->isoc_in_endpointAddr && usb_endpoint_is_isoc_in(endpoint)) {
 			ep_max_size = le16_to_cpu(endpoint->wMaxPacketSize);
 			ep_max_size = (ep_max_size & 0x07ff) * (1 + ((ep_max_size >> 11) & 3));		/* 高速每小帧可传输1-4事务，虽然用不到，还是考虑进去 */
 
-			dev->isoc_in_endpointAddr = enpoint->bEndpointAddress;
+			dev->isoc_in_endpointAddr = endpoint->bEndpointAddress;
 			dev->isoc_in_packetsize = ep_max_size;
-			dev->isoc_in_npackets = DIV_ROUND_UP(SEMG_FRAME_SIZE, isoc_in_packetsize);		/* 计算包数量即事务数，对于full speed就是帧数量 */
+			dev->isoc_in_npackets = DIV_ROUND_UP(SEMG_FRAME_SIZE, dev->isoc_in_packetsize);		/* 计算包数量即事务数，对于full speed就是帧数量 */
 			dev->isoc_in_size = dev->isoc_in_packetsize * dev->isoc_in_npackets;
 			/* 分配dma缓冲区，获得dma地址和cpu空间的地址 */
-			dev->isoc_in_buffer = usb_buffer_alloc(dev->udev, dev->isoc_in_size,
+			dev->isoc_in_buffer = usb_alloc_coherent(dev->udev, dev->isoc_in_size,
 				GFP_KERNEL, &dev->isoc_in_buffer_dma);
 			if (!dev->isoc_in_buffer) {
-				err("Cannot allocate isoc_in_buffer");
+				dev_err(&interface->dev, "Cannot allocate isoc_in_buffer");
 				goto error;
 			}
 
 			/* 分配isoc的urb */
 			dev->isoc_in_urb = usb_alloc_urb(dev->isoc_in_packetsize, GFP_KERNEL);
 			if (!dev->isoc_in_urb) {
-				err("%s - Cannot allocate isoc_in_buffer", __func__);
+				dev_err(&interface->dev, "%s - Cannot allocate isoc_in_buffer", __func__);
 				goto error;
 			}
 
 		}
 	}
 	if (!(dev->isoc_in_endpointAddr)) {
-		err("Cannot find isochronus enpoint");
+		dev_err(&interface->dev, "Cannot find isochronus enpoint");
 		goto error;
 	}
 
 	/* save semg dev pointer to this interface device */
-	usb_set_infdata(interface, dev);
+	usb_set_intfdata(interface, dev);
 
 	/* 注册吧，read，write都通过semg_class注册进来 */
-	retval = usb_regiter_dev(interface, &semg_class);
+	retval = usb_register_dev(interface, &semg_class);
 	if(retval) {
-		err("register semg device failed");
-		usb_set_infdata(interface, NULL);
+		dev_err(&interface->dev, "register semg device failed");
+		usb_set_intfdata(interface, NULL);
 		goto error;
 	}
 
@@ -281,14 +312,15 @@ error:
 	if (dev)
 		/* this frees allocated memory */
 		kref_put(&dev->kref, semg_delete);
+	return retval;
 }
 
 /* 可能会和open竞争 */
 static void semg_disconnect(struct usb_interface *interface) {
 	struct usb_semg *dev;
 
-	dev = usb_get_infdata(interface);
-	usb_set_infdata(interface, NULL);
+	dev = usb_get_intfdata(interface);
+	usb_set_intfdata(interface, NULL);
 
 	/* 注销设备，归还次设备号 */
 	usb_deregister_dev(interface, &semg_class);
@@ -298,24 +330,18 @@ static void semg_disconnect(struct usb_interface *interface) {
 	mutex_unlock(&dev->io_mutex);
 
 
-	kref_put(&dev->kref, smeg_delte)
+	kref_put(&dev->kref, semg_delete);
 	///TODO:
-    kill all urb
+    //kill all urb
 	/* let the user know device disconnected */
 	dev_info(&interface->dev, "USB SEMG device #%d now disconnected", interface->minor);
 }
 
-static void semg_delete(struct kref *kref) {
-	struct usb_semg *dev = to_semg_dev(kref);
 
-	usb_free_urb(dev->isoc_in_urb);
-	usb_put_dev(dev->udev);
-	free_page(dev->isoc_in_buffer);
-}
 
 static struct usb_driver semg_driver = {
-	.owner = THIS_MODULE,
-	.name = "semg_driver",
+//	.owner = THIS_MODULE,
+	.name = "usb_semg",
 	.id_table = semg_supported_table,
 	.probe = semg_probe,
 	.disconnect = semg_disconnect
@@ -328,17 +354,17 @@ static int __init usb_semg_init(void)
 	/* register this driver with the USB subsystem */
 	result = usb_register(&semg_driver);
 	if (result)
-		err("usb_register failed. Error number %d", result);
+		pr_err("usb_register failed. Error number %d", result);
 
 	return result;
 }
 
 static void __exit usb_semg_exit(void) {
-	usb_deregister(&semg_driver)
+	usb_deregister(&semg_driver);
 }
 
-module_init(usb_semg_init)
-module_exit(usb_semg_exit)
+module_init(usb_semg_init);
+module_exit(usb_semg_exit);
 
 MODULE_AUTHOR("Yao");
 MODULE_LICENSE("GPL v2");
