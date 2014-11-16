@@ -25,7 +25,6 @@
 #include "IO_Map.h"
 #include "usb_device.h"
 #include "USB_LDD.h"
-#include "usb_audio.h"
 #include "PE_LDD.h"
 
 void Cpu_OnNMIINT(void);

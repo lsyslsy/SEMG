@@ -1,6 +1,6 @@
 <Analysispoints>
 	<Name>AnalysispointsManager</Name>
-	<ProjectPath>D:/Project/freescale/USB_AUDIO_DEVICE_MKL25Z128_PEx/SaAnalysispointsManager.apconfig</ProjectPath>
+	<ProjectPath>D:/kuaipan/SEMG(surface electromyography)/SEMG/branch/SEMG_USB_KL25/SaAnalysispointsManager.apconfig</ProjectPath>
 	<MaxNumberOfCores>1</MaxNumberOfCores>
 	<Comments>Analysispoints Manager</Comments>
 	<IgnoreAll>false</IgnoreAll>
