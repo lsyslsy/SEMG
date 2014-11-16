@@ -1,1 +1,0 @@
-cmd_/semg/Drivers/pwm_sync/pwm_sync.ko := arm-linux-ld -EL -r  -T /home/yao/share/linux-2.6.36/scripts/module-common.lds --build-id  -o /semg/Drivers/pwm_sync/pwm_sync.ko /semg/Drivers/pwm_sync/pwm_sync.o /semg/Drivers/pwm_sync/pwm_sync.mod.o
