@@ -15,14 +15,14 @@ obj-m := usb_semg.o
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 EXTRA_CFLAGS += $(DEBFLAGS)
-all:modules
-modules:
+all:modules test
+modules:usb_semg.c
 	$(MAKE) -Wall  -C $(KERNELDIR) M=$(PWD) modules
-#test:usb_seng.c
-#	$(CC) -Wall pwm_test.c -o pwm_test 
+test:usb_test.c
+	gcc -Wall -lrt usb_test.c -o usb_test 
 install:
-#	cp pwm_sync.ko /forlinx/share
-#	cp pwm_test /forlinx/share
+	cp usb_semg.ko /forlinx/share
+	cp usb_test /forlinx/share
 clean:
 	rm -rf  *.o .*.cmd *.ko *.mod.c .tmp_versions pwm_test *.symvers *.order
 .PHONY:modules clean install all
