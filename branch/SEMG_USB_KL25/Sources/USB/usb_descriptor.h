@@ -26,15 +26,18 @@
 #define REMOTE_WAKEUP_SHIFT                 (5)
 #define REMOTE_WAKEUP_SUPPORT               (TRUE)
 
+#define AUDIO_DESC_ENDPOINT_COUNT           (0x01)
+
 #define DEVICE_DESCRIPTOR_SIZE              (0x12)
-/* Configuration descriptor */
-#define CONFIG_DESC_SIZE                    (0x6F)
 #define CONFIG_ONLY_DESC_SIZE               (0x09)
 #define IFACE_ONLY_DESC_SIZE                (0x09)
 #define AUDIO_ONLY_DESC_SIZE                (0x09)
 #define ENDP_ONLY_DESC_SIZE                 (0x09)
 #define HEADER_ONLY_DESC_SIZE               (0x09)
-
+/* Configuration descriptor */
+#define CONFIG_DESC_SIZE                    (CONFIG_ONLY_DESC_SIZE + \
+    IFACE_ONLY_DESC_SIZE + \
+    ENDP_ONLY_DESC_SIZE * AUDIO_DESC_ENDPOINT_COUNT)
 /* Device Topologi descriptor */
 #define INPUT_TERMINAL_ONLY_DESC_SIZE       (0x0C)
 #define OUTPUT_TERMINAL_ONLY_DESC_SIZE      (0x09)
@@ -64,7 +67,7 @@
 
 #define AUDIO_UNIT_COUNT                    (0x03)
 
-#define AUDIO_DESC_ENDPOINT_COUNT           (0x01)
+
 
 /* Max descriptors provided by the Application */
 #define USB_MAX_STD_DESCRIPTORS             (0x08)

@@ -36,7 +36,7 @@
       <File Name="Generated_Code/Cpu.h" FileDate="2014-10-21, 16:16:56" FileAge="1413879416554" FileType="45637" CompNumb="2" />
       <File Name="Generated_Code/usb_driver.c" FileDate="2014-11-05, 14:48:30" FileAge="1415170110478" FileType="45637" CompNumb="27" />
       <File Name="Documentation/doxygen/USB_LDD.txt" FileDate="2014-11-11, 16:43:01" FileAge="1415695381925" FileType="45637" CompNumb="28" />
-      <File Name="Documentation/ProcessorExpert_SIGNALS.txt" FileDate="2014-11-11, 16:45:23" FileAge="1415695523265" FileType="3072" />
+      <File Name="Documentation/ProcessorExpert_SIGNALS.txt" FileDate="2014-11-19, 21:28:28" FileAge="1416403708966" FileType="3072" />
       <File Name="Generated_Code/Cpu.c" FileDate="2014-11-05, 14:48:30" FileAge="1415170110398" FileType="45637" CompNumb="2" />
       <File Name="Documentation/doxygen/ProcessorExpert.txt" FileDate="2014-11-05, 14:48:30" FileAge="1415170110396" FileType="45637" CompNumb="2" />
       <File Name="Documentation/ProcessorExpert.txt" FileDate="2014-11-11, 16:35:15" FileAge="1415694915124" FileType="3072" />
@@ -50,5 +50,5 @@
       <File Name="Generated_Code/usb_class.h" FileDate="2014-11-05, 14:48:30" FileAge="1415170110456" FileType="45637" CompNumb="27" />
     </GeneratedByPE>
   </GeneratedFilesList>
-  <CodeGenReference>45</CodeGenReference>
+  <CodeGenReference>47</CodeGenReference>
 </CodeGenerationInfo>
