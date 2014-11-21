@@ -93,45 +93,11 @@ uint_8 g_config_descriptor[CONFIG_DESC_SIZE] =
     USB_IFACE_DESCRIPTOR,              /* INTERFACE descriptor type */
     0x00,                              /* Number of interface */
     0x00,                              /* Alternate Setting value */
-    0x00,                              /* Number of endpoints */
-    0x0F,                              /* Interface Class */
+    0x01,                              /* Number of endpoints */
+    0xFF,                              /* Interface Class */
     0x00,                              /* Interface Sub Class */
     0x00,                              /* Interface Protocol */
     0x00,                              /* Index of a string descriptor */
-
-    /* Class-specific SEMG Control Interface Descriptor */
-    HEADER_ONLY_DESC_SIZE,             /* Size of this descriptor */
-    AUDIO_INTERFACE_DESCRIPTOR_TYPE,   /* Interface descriptor type */
-    AUDIO_CONTROL_HEADER,              /* Interface descriptor sub type */
-    0x00,0x01,                         /* bcdADC */
-    0x29,0x00,                         /* Total Length */
-    0x01,                              /* Interface collection */
-    0x01,                              /* Interface Number */    
-
-    /* SEMG INTERFACE DESCRIPTOR */
-    /* Standard AS interface descriptor */
-    /* Alternate setting 0 */
-    IFACE_ONLY_DESC_SIZE,              /* Size of this descriptor */
-    USB_IFACE_DESCRIPTOR,              /* Descriptor type */
-    0x01,                              /* Interface number */
-    0x00,                              /* Alternate setting */
-    0x00,                              /* Number endpoints */
-    0x01,                              /* Interface class */
-    0x02,                              /* Interface sub class */
-    0x00,                              /* Interface protocol */
-    0x00,                              /* Interface index string */
-
-
-    /* Type I format type interface descriptor */
-    AUDIO_INTERFACE_DESC_TYPE_I_SIZE,  /* Size of this descriptor */
-    AUDIO_INTERFACE_DESCRIPTOR_TYPE,   /* Interface Descriptor type */
-    AUDIO_STREAMING_FORMAT_TYPE,       /* Interface descriptor sub type */
-    AUDIO_FORMAT_TYPE_I,               /* Format type */
-    0x01,                              /* Number channel */
-    0x01,                              /* Frame size */
-    0x10,                              /* Bit resolution */
-    0x01,                              /* One Sampling frequency */
-    0x40,0x1F,0x00,                    /* Sampling frequency */
 
     /* Standard AS Data Endpoint Descriptor */
     ENDP_ONLY_DESC_SIZE,               /* Size of this descriptor */
@@ -140,6 +106,40 @@ uint_8 g_config_descriptor[CONFIG_DESC_SIZE] =
     0x01,                              /* Attribute */
     0xFF,0x03,                         /* Endpoint max packet size */
     0x01,                              /* Interval */
+    
+//    /* Class-specific SEMG Control Interface Descriptor */
+//    HEADER_ONLY_DESC_SIZE,             /* Size of this descriptor */
+//    AUDIO_INTERFACE_DESCRIPTOR_TYPE,   /* Interface descriptor type */
+//    AUDIO_CONTROL_HEADER,              /* Interface descriptor sub type */
+//    0x00,0x01,                         /* bcdADC */
+//    0x29,0x00,                         /* Total Length */
+//    0x01,                              /* Interface collection */
+//    0x01,                              /* Interface Number */    
+//
+//    /* SEMG INTERFACE DESCRIPTOR */
+//    /* Standard AS interface descriptor */
+//    /* Alternate setting 0 */
+//    IFACE_ONLY_DESC_SIZE,              /* Size of this descriptor */
+//    USB_IFACE_DESCRIPTOR,              /* Descriptor type */
+//    0x01,                              /* Interface number */
+//    0x00,                              /* Alternate setting */
+//    0x00,                              /* Number endpoints */
+//    0x01,                              /* Interface class */
+//    0x02,                              /* Interface sub class */
+//    0x00,                              /* Interface protocol */
+//    0x00,                              /* Interface index string */
+//
+//
+//    /* Type I format type interface descriptor */
+//    AUDIO_INTERFACE_DESC_TYPE_I_SIZE,  /* Size of this descriptor */
+//    AUDIO_INTERFACE_DESCRIPTOR_TYPE,   /* Interface Descriptor type */
+//    AUDIO_STREAMING_FORMAT_TYPE,       /* Interface descriptor sub type */
+//    AUDIO_FORMAT_TYPE_I,               /* Format type */
+//    0x01,                              /* Number channel */
+//    0x01,                              /* Frame size */
+//    0x10,                              /* Bit resolution */
+//    0x01,                              /* One Sampling frequency */
+//    0x40,0x1F,0x00,                    /* Sampling frequency */
 };
 
 /* String 0 Descriptor */

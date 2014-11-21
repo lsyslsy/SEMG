@@ -64,7 +64,7 @@ static void USB_App_Callback(uint_8 controller_ID,uint_8 event_type, void* val);
 /* Audio speaker Application start Init Flag */
 static volatile boolean start_app = FALSE;
 static boolean start_send = TRUE;
-static uint_8 wav_buff[8];
+static uint_8 wav_buff[3257];
 static uint_32 audio_position = 0;
 
 /*****************************************************************************
@@ -84,11 +84,11 @@ static uint_32 audio_position = 0;
 *****************************************************************************/
 void USB_Prepare_Data(void)
 {
-    uint_8 k;
+    uint_32 k;
     if (g_cur_mute[0] == 0)//√ªæ≤“Ù
     {
         /* copy data to buffer */
-        for(k=0;k<8;k++,audio_position++)
+        for(k=0;k<(sizeof(wav_buff)/sizeof(wav_buff[0]));k++,audio_position++)
         {
             wav_buff[k]    = wav_data[audio_position];
         }
@@ -96,7 +96,7 @@ void USB_Prepare_Data(void)
     else
     {
         /* copy data to buffer */
-        for(k=0;k<8;k++,audio_position++)
+        for(k=0;k<(sizeof(wav_buff)/sizeof(wav_buff[0]));k++,audio_position++)
         {
             wav_buff[k]    = 0;
         }
