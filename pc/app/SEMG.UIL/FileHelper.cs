@@ -14,7 +14,7 @@ namespace SEMG.UIL
         string filename = "";
         FileStream fs;
         StreamWriter sw;
-        
+        bool closed = false;
 
         public FileHelper(string fn)
         {
@@ -31,28 +31,51 @@ namespace SEMG.UIL
 
         public void Flush()
         {
-            sw.Flush();
+            lock (this)
+            {
+                sw.Flush();
+            }
+            
         }
         public void Write(string s)
         {
-            sw.Write(s);
+            lock (this)
+            {
+                if (closed)
+                    return;
+                sw.Write(s);
+            }
         }
         public void WriteSC(StringCollection stringCollection)
         {
-            foreach (string line in stringCollection)
+            lock (this)
             {
-                sw.WriteLine(line);
+                if (closed)         //不锁了，防止死锁
+                    return;
+                foreach (string line in stringCollection)
+                {
+                    sw.WriteLine(line);
+                }
             }
         }
 
         public void WriteLine(string s)
         {
-            sw.WriteLine(s);
+            lock (this)
+            {
+                if (closed)
+                    return;
+                sw.WriteLine(s);
+            }
         }
         public void Close()
         {
-            sw.Close();
-            fs.Close();
+            lock (this)
+            {
+                closed = true;
+                sw.Close();
+                fs.Close();
+            }
         }
     }
 
