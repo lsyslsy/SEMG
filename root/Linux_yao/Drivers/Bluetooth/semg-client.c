@@ -13,10 +13,17 @@ int main(int argc, char **argv)
 {
 	struct sockaddr_l2 addr = {0};
 	int sock, status, i, retval;
-	char dest[18] = "1C:78:39:11:11:11";
+	char dest[18] = "1C:78:39:11:11:11";//"00:1A:7D:DA:71:13";//
 	char buf[60000] = {0}; //60KB size
+		struct timespec 		tpstart, tpend;
+	clock_t 		start, end;
 	//allocate a socket
 	sock = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
+
+	if (sock < 0) {
+		perror("socket");
+		goto out;
+	}
 
 	//set the connection parameters (who to connect to)
 	addr.l2_family = AF_BLUETOOTH;
@@ -34,18 +41,29 @@ int main(int argc, char **argv)
 	//connect to server
 	status = connect(sock, (struct sockaddr *)&addr, sizeof(addr));
 	if (status != 0) {
+		perror("connect");
 		goto out;
 	}
 	for (i = 0; i < 100; i++) {
 		sprintf(buf, "you are the best [%d] times", i);
+		if ((start = clock_gettime(CLOCK_REALTIME, &tpstart)) == -1) {
+			printf("times error");
+			return -1;
+		}
 		//send a message
-		retval = send(sock, buf, 50000, 0);		
+		retval = send(sock, buf, 28000, 0);	
 		if (retval < 0) {
 			perror("send error");
 			goto out;
 		}
-		printf("send %d\n", i);
-		sleep(1);
+		if ((end = clock_gettime(CLOCK_REALTIME, &tpend)) == -1) {
+			printf("times error");
+			return -1;
+		}
+	
+		printf("send %d\t", i);
+		pri_times(end - start, &tpstart, &tpend);
+		sleep(1);//proper delay may be necessary
 		/*retval = recv(sock, buf, sizeof(buf), 0);
 		if (retval < 0) {
 			perror("recv error");

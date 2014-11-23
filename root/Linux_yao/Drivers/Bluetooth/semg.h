@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
-
+#include <time.h>
 #include <sys/select.h>
 #include <sys/ioctl.h>
 
@@ -77,4 +77,24 @@ static int set_l2cap_mtu( int sock, uint16_t mtu ) {
     }
     return err;
 };
+static void pri_times(clock_t real, struct timespec *tpstart, struct timespec *tpend) {
+	long		timediff = 0;
+
+	// if (clktck == 0)	/* fetch clock ticks per second first time */
+	// 	if ((clktck = sysconf(_SC_CLK_TCK)) < 0) {
+	// 		perror("sysconf error");
+	// 		exit(1);
+	// 	}
+	timediff = (tpend->tv_sec - tpstart->tv_sec) * 1000000000 + (tpend->tv_nsec - tpstart->tv_nsec);
+	printf("elapsed time:%fs\n", timediff / (double) 1000000000);
+	// printf("  real:  %7.6f\n", real / (double) clktck);
+	// printf("  user:  %7.6f\n",
+	//   (tpend->tms_utime - tpstart->tms_utime) / (double) clktck);
+	// printf("  sys:   %7.6f\n",
+	//   (tpend->tms_stime - tpstart->tms_stime) / (double) clktck);
+	// printf("  child user:  %7.6f\n",
+	//   (tpend->tms_cutime - tpstart->tms_cutime) / (double) clktck);
+	// printf("  child sys:   %7.6f\n",
+	//   (tpend->tms_cstime - tpstart->tms_cstime) / (double) clktck);
+}
 

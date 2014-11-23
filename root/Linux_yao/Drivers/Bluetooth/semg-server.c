@@ -9,7 +9,7 @@
 #include <bluetooth/l2cap.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
-
+#include <time.h>
 #include "semg.h"
 
 //TODO: change to bluetooth address to specified
@@ -22,10 +22,14 @@ int main(int argc, char **argv) {
 	unsigned int optlen = sizeof(remote_addr);
 	ssize_t count = 0;
 	int i;
+	struct timespec 		tpstart, tpend;
+	clock_t 		start, end;
 
 	listensock = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP);
-	if (listensock < 0)
+	if (listensock < 0) {
+		perror("socket");
 		return listensock;
+	}
 
 	if (set_l2cap_mtu(listensock, 65000) != 0) {
 		perror("set_l2cap_mtu");
@@ -37,11 +41,15 @@ int main(int argc, char **argv) {
 	local_addr.l2_family = AF_BLUETOOTH;
 	local_addr.l2_bdaddr = *BDADDR_ANY;
 	local_addr.l2_psm = htobs(0x1001);
-	if (bind(listensock, (struct sockaddr *)&local_addr, sizeof(local_addr)))
+	if (bind(listensock, (struct sockaddr *)&local_addr, sizeof(local_addr))) {
+		perror("bind");
 		goto failed;
+	}
 	
-	if (listen(listensock, 1) < 0)
+	if (listen(listensock, 1) < 0) {
+		perror("listen");
 		goto failed;
+	}
 	
 	memset(&remote_addr, 0, sizeof(remote_addr));
 
@@ -60,14 +68,24 @@ int main(int argc, char **argv) {
 		ba2str(&remote_addr.l2_bdaddr, buf);
 		fprintf(stderr, "accepted connection from %s\n", buf);
 		do {
+			if ((start = clock_gettime(CLOCK_REALTIME, &tpstart)) == -1) {
+				printf("times error");
+				return -1;
+			}
 			count = recv(clientsock, buf, sizeof(buf), 0);
 			if(count > 0) {
-				printf("received [%d]:%d\n", count, i);
+				printf("received [%d]:%d\t", count, i);
 			} else if(count == 0){
-				printf("client disconnect\n");
+				printf("client disconnect\t");
 			} else {
 				perror("recv error");
 			}
+
+			if ((end = clock_gettime(CLOCK_REALTIME, &tpend)) == -1) {
+				printf("times error");
+				return -1;
+			}
+			pri_times(end - start, &tpstart, &tpend);
 			//count = send(clientsock, "yes you are the best!", 20, 0);
 			i++;
 		} while (count > 0);
