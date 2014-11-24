@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 		perror("set_l2cap_mtu");
 		goto out;
 	}	
-	// if(set_flush_timeout(&remote_addr.l2_bdaddr, 10)) {
+	// if(set_flush_timeout(&remote_addr.l2_bdaddr, 1)) {
 	// 		perror("set flush timeout");
 	// 		goto failed1;
 	// 	}
@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 		perror("connect");
 		goto out;
 	}
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < 1; i++) {
 		sprintf(buf, "you are the best [%d] times", i);
 		if ((start = clock_gettime(CLOCK_REALTIME, &tpstart)) == -1) {
 			printf("times error");
