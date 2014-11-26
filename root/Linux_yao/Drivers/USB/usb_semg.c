@@ -14,9 +14,13 @@
 #include <linux/module.h>
 #include <linux/kref.h>
 #include <linux/slab.h>
-
+#include <linux/poll.h>
 
 #include <asm/atomic.h>
+
+
+//#define ASYNC_NOTIFY_SUPPORT
+#define POLL_SUPPORT 
 
 //TODO
 #define USB_SEMG_VENDOR_ID 		0x05AC
@@ -52,6 +56,9 @@ struct usb_semg {
 	spinlock_t 	err_lock; 			//lock for errors
 	int 			errors; 			//上次传输的错误结果
 	struct kref 	kref;				/* 设备引用计数 */
+#ifdef ASYNC_NOTIFY_SUPPORT
+	struct fasync_struct 	*async_queue; /* 异步通知队列 */
+#endif
 	//atomic_t /* 跟踪打开计数 */
 	struct mutex 	io_mutex; 			/* 用于读写，断开之间的同步 */
 };
@@ -105,6 +112,11 @@ static void semg_read_isoc_callback(struct urb *urb)
 	}*/
 	
 	spin_unlock(&dev->err_lock);
+#ifdef ASYNC_NOTIFY_SUPPORT
+	if (dev->async_queue)
+		kill_fasync(&dev->async_queue, SIGIO, POLL_IN);
+#endif
+
 	complete(&dev->isoc_in_completion);
 }
 
@@ -119,6 +131,8 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	int retval = 0;
 	
 	//dev->isoc_in_buffer = usb_alloc_coherent(dev->udev, )
+
+	mutex_lock(&dev->io_mutex);
 
 	/* 初始化urb */
 	urb->dev = dev->udev;
@@ -185,13 +199,38 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	retval = count;
 
 out:
+	mutex_unlock(&dev->io_mutex)
 	return retval;
 }
 
 static ssize_t semg_write(struct file *file, const char __user *uesr_buf, size_t count, loff_t *f_pos) {
 	//读写之间要加锁
+	struct usb_semg *dev = file->private_data;
+
+	mutex_lock(&dev->io_mutex);
+
+	mutex_unlock(&dev->io_mutex);
 	return -1;
 }
+
+#ifdef POLL_SUPPORT
+//TODO lack wait queue
+static unsigned int semg_poll(struct file *filep, struct poll_table_struct *wait) {
+	struct usb_semg *dev = file->private_data;
+	unsigned int mask = 0;
+
+	mutex_lock(&dev->io_mutex);
+	poll_wait(file, &, wait);
+
+	if (dev->isoc_in_filled != 0)
+		mask |= POLLIN | POLLRDNORM;
+	mutex_unlock(&dev->io_mutex);
+
+
+	return mask;
+}
+#endif
+
 static int semg_open(struct inode *inode, struct file *file) {
 	struct usb_interface *interface;
 	struct usb_semg *dev;
@@ -243,6 +282,14 @@ error:
 	return retval;
 }
 
+#ifdef ASYNC_NOTIFY_SUPPORT
+static int semg_fasync(int fd, struct file *filep, int mode) {
+	struct usb_semg *dev = filep->private_data;
+	return fasync_helper(fd, filep, mode, &dev->async_queue);
+
+}
+#endif
+
 static int semg_release(struct inode *inode, struct file *file) {
 	struct usb_semg *dev;
 
@@ -255,9 +302,15 @@ static int semg_release(struct inode *inode, struct file *file) {
 	// if(dev->interface)
 	// 	usb_autopm_put_interface(dev->interface);		/* 允许usb设备autosuspended */
 	// mutex_unlock(&dev->io_mutex);
-	
+
+#ifdef ASYNC_NOTIFY_SUPPORT
+	semg_fasync(-1, file, 0); 		//remove from asynchronous notification list
+#endif
+
 	/* decrement the count on our device */
 	kref_put(&dev->kref, semg_delete);
+
+
 	return 0;
 }
 
@@ -265,14 +318,24 @@ static int semg_flush(struct file *file, fl_owner_t id) {
 	return 0;
 }
 
+
+
 static const struct file_operations semg_fops = {
 	.owner =	THIS_MODULE,
 	.read = 	semg_read,
 	.write = 	semg_write,
-	.open = 	semg_open,
-	.release = 	semg_release,
-	.flush = 	semg_flush
+	.open = 	semg_open,	
+	.flush = 	semg_flush,
+#ifdef POLL_SUPPORT
+	.poll = 	semg_poll,
+#endif
+#ifdef ASYNC_NOTIFY_SUPPORT
+	.fasync = 	semg_fasync,
+#endif
+	.release = 	semg_release
 };
+
+
 static struct usb_class_driver semg_class = {
 	.name = "semg-usb%d",		/* %d为设备编号*/
 	.fops = &semg_fops,
