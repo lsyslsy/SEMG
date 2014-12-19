@@ -8,7 +8,8 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
-
+#include <sched.h>
+#include "led.h"
 
 static void pri_times(clock_t, struct timespec *, struct timespec *);
 
@@ -23,10 +24,19 @@ int main(int argc, char const *argv[])
 	char 			strbuf[20] ={0};
 	struct timespec 		tpstart, tpend;
 	clock_t 		start, end;
+	struct sched_param param;
+	int ret = 0;
 	/*if (argc != 2) {
 		printf("usage:%s <usbnum> \n", argv[0]);
 		return -1;
 	}*/
+	param.sched_priority = 10;
+	ret = sched_setscheduler(getpid(), SCHED_FIFO,&param);
+    if(ret)
+    {
+        fprintf(stderr,"set scheduler failed \n");
+        return -4;
+    }
 
 	sprintf(strbuf, "/dev/semg-usb%d", 0);
 	fd0 = open(strbuf, O_RDONLY);
@@ -41,38 +51,43 @@ int main(int argc, char const *argv[])
 		return -1;
 	}
 
+for (;;) {
 	if ((start = clock_gettime(CLOCK_REALTIME, &tpstart)) == -1) {
 		printf("times error");
 		return -1;
 	}
 
+	Led_on(1);
 	count = read(fd0, inbuffer, 3257);
 	if (count < 0) {
-		fprintf(stderr, "error code:%d; %s\n", errno, strerror(errno));
+		fprintf(stderr, "read0 error code:%d; %s\n", errno, strerror(errno));
 		//perror("read");
 		return -1;
 	}
-	//count = read(fd1, inbuffer, 3257);
+	
+	count = read(fd1, inbuffer, 3257);
 	if (count < 0) {
-		fprintf(stderr, "error code:%d; %s\n", errno, strerror(errno));
+		fprintf(stderr, "read1 error code:%d; %s\n", errno, strerror(errno));
 		//perror("read");
 		return -1;
 	}
-
-	if ((end = clock_gettime(CLOCK_REALTIME, &tpend)) == -1) {
+if ((end = clock_gettime(CLOCK_REALTIME, &tpend)) == -1) {
 		printf("times error");
 		return -1;
 	}
+	Led_off(1);
 	pri_times(end - start, &tpstart, &tpend);
+	
 	printf("count:%zd", count);
-	for (i = 0; i < 10; i++) {
-		if ((i % 10) ==0 ) printf("\n");
-		printf("%#x,", inbuffer[i]);
-	}
+	// for (i = 0; i < 10; i++) {
+	// 	if ((i % 10) ==0 ) printf("\n");
+	// 	printf("%#x,", inbuffer[i]);
+	// }
 	printf("\n");
+	sleep(1);
 	//printf("%zd:%#x, %#x, %#x, %#x, %#x, %#x, %#x, %#x\n", count, inbuffer[1019], inbuffer[1020], inbuffer[1021], inbuffer[1022], 
 	//	inbuffer[1023], inbuffer[1024], inbuffer[1025], inbuffer[1026]);
-
+}
 	return 0;
 }
 

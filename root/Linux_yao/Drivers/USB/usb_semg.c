@@ -15,12 +15,16 @@
 #include <linux/kref.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
-
+#include <linux/delay.h>
 #include <asm/atomic.h>
-
+#include <asm/io.h>
+#include <mach/map.h>
+#include <plat/gpio-cfg.h>
+#include <mach/regs-gpio.h>
+#include <mach/gpio-bank-m.h>
 
 //#define ASYNC_NOTIFY_SUPPORT
-#define POLL_SUPPORT 
+//#define POLL_SUPPORT 
 
 //TODO
 #define USB_SEMG_VENDOR_ID 		0x05AC
@@ -80,7 +84,11 @@ static void semg_read_isoc_callback(struct urb *urb)
 {
 	struct usb_semg *dev = urb->context;
 	int i;
+	unsigned int tmp;
 
+	tmp = readl(S3C64XX_GPMDAT);
+	tmp |= 1;
+	writel(tmp, S3C64XX_GPMDAT);
 	spin_lock(&dev->err_lock);
 	/* sync/async unlink faults aren't errors */
 	//TODO
@@ -129,11 +137,14 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	struct urb  *urb = dev->isoc_in_urb;
 	unsigned int i;
 	int retval = 0;
+	unsigned int tmp;	
 	
 	//dev->isoc_in_buffer = usb_alloc_coherent(dev->udev, )
 
 	mutex_lock(&dev->io_mutex);
-
+	tmp = readl(S3C64XX_GPMDAT);
+	tmp &= ~1;
+	writel(tmp, S3C64XX_GPMDAT);
 	/* 初始化urb */
 	urb->dev = dev->udev;
 	urb->pipe = usb_rcvisocpipe(dev->udev, dev->isoc_in_endpointAddr);
@@ -142,16 +153,20 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	urb->complete = semg_read_isoc_callback;
 	urb->transfer_buffer = dev->isoc_in_buffer;		 
 	urb->transfer_dma = dev->isoc_in_buffer_dma;
-	urb->number_of_packets = dev->isoc_in_npackets; 
+	urb->number_of_packets = dev->isoc_in_npackets;
+	//urb->start_frame = usb_get_current_frame_number(urb->dev) - 10;
 	urb->transfer_buffer_length = dev->isoc_in_size;      //TODO   是不是该使用SEMG_FRAME_SIZE;
 	urb->transfer_flags = URB_ISO_ASAP | URB_NO_TRANSFER_DMA_MAP;//尽早开始同步传输，优选使用DMA传输
 	/* 设置isoc各帧的缓冲区位移，每帧预计长度 */
-	for (i = 0; i < urb->number_of_packets; i++) {
+	for (i = 0; i < urb->number_of_packets - 1; i++) {
 		urb->iso_frame_desc[i].offset = i * dev->isoc_in_packetsize;
 		//expected length, 实际读到的大小是由设备决定的，
 		//如果收到的数据长度>length，则会产生EOVERFLOW的错误;如果实际数据长度<length，则读到的acutal_length<length
 		urb->iso_frame_desc[i].length = dev->isoc_in_packetsize; 	
 	}
+	urb->iso_frame_desc[i].offset = i * dev->isoc_in_packetsize;
+	urb->iso_frame_desc[i].length = SEMG_FRAME_SIZE - i * dev->isoc_in_packetsize;
+
 	//dev_info(&dev->interface->dev, " %#x: packets of number:%zd, total size:%zd, max size:%zd", dev->isoc_in_endpointAddr,
 	//	dev->isoc_in_npackets , dev->isoc_in_size, dev->isoc_in_packetsize);
 	/* submit urb */
@@ -165,7 +180,9 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 
 	/*wait for read operation complete*/
 	wait_for_completion(&dev->isoc_in_completion);
-
+	//while (dev->isoc_in_filled != SEMG_FRAME_SIZE)
+	//	msleep(1);
+	//goto out;
 	spin_lock(&dev->err_lock);
 	/* errors must be reported */
 	retval = dev->errors;
@@ -184,7 +201,7 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 
 	//TODO
 	if((dev->isoc_in_filled != SEMG_FRAME_SIZE) || (SEMG_FRAME_SIZE != count)) {
-		//dev_err(&dev->interface->dev, "total received size :%zd\n", dev->isoc_in_filled);
+		dev_err(&dev->interface->dev, "total received size :%zd\n", dev->isoc_in_filled);
 		retval = -EINVAL;
 		goto out;
 	}
@@ -199,7 +216,7 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	retval = count;
 
 out:
-	mutex_unlock(&dev->io_mutex)
+	mutex_unlock(&dev->io_mutex);
 	return retval;
 }
 
@@ -216,7 +233,7 @@ static ssize_t semg_write(struct file *file, const char __user *uesr_buf, size_t
 #ifdef POLL_SUPPORT
 //TODO lack wait queue
 static unsigned int semg_poll(struct file *filep, struct poll_table_struct *wait) {
-	struct usb_semg *dev = file->private_data;
+	struct usb_semg *dev = filep->private_data;
 	unsigned int mask = 0;
 
 	mutex_lock(&dev->io_mutex);
