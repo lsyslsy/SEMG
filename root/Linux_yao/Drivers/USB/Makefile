@@ -1,6 +1,6 @@
 # Comment/uncomment the following line to disable/enable debugging
 # DEBUG = y
-
+ARM = n
 
 # Add your debugging flag (or not) to CFLAGS
 # ifeq ($(DEBUG),y)
@@ -10,16 +10,24 @@
 # endif
 
 obj-m := usb_semg.o 
-#CROSS_COMPILE=arm-linux-
-#KERNELDIR ?= /home/yao/share/linux-2.6.36
-KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+
+ifeq ($(ARM), y)
+	CROSS_COMPILE=arm-linux-
+	KERNELDIR ?= /home/yao/share/linux-2.6.36
+	CCC=arm-linux-gcc
+	#EXTRA_CFLAGS += -DSEMG_ARM
+else
+	KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+	CCC=gcc
+endif
+
 PWD := $(shell pwd)
 # EXTRA_CFLAGS += $(DEBFLAGS)
 all: modules test
 modules: usb_semg.c
 	$(MAKE) -Wall  -C $(KERNELDIR) M=$(PWD) modules
 test: usb_test.c led.c
-	gcc -Wall -lrt usb_test.c led.c -o usb_test
+	$(CCC) -Wall -lrt usb_test.c led.c -o usb_test
 install:
 	cp usb_semg.ko /forlinx/share
 	cp usb_test /forlinx/share

@@ -8,91 +8,110 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
-#include <sched.h>
+#include <aio.h>
 
-#ifdef SEMG_ARM
-#include "led.h"
-#endif
 static void pri_times(clock_t, struct timespec *, struct timespec *);
 
+struct aiocb 	aiocb;
+char 			inbuffer[8192] = {0};
+const struct aiocb *aiolist[8];
 
 int main(int argc, char const *argv[])
 {
 	int fd0, fd1;
-	//int retval = 0;
+	int retval = 0;
 	int i;
 	ssize_t 		count = 0;
-	unsigned char 			inbuffer[8192] = {0};
+
 	char 			strbuf[20] ={0};
 	struct timespec 		tpstart, tpend;
 	clock_t 		start, end;
-	struct sched_param param;
-	int ret = 0;
 	/*if (argc != 2) {
 		printf("usage:%s <usbnum> \n", argv[0]);
 		return -1;
 	}*/
-	param.sched_priority = 10;
-	// ret = sched_setscheduler(getpid(), SCHED_FIFO,&param);
- //    if(ret)
- //    {
- //        fprintf(stderr,"set scheduler failed \n");
- //        return -4;
- //    }
 
-	sprintf(strbuf, "/dev/semg-usb%d", 1);
+	sprintf(strbuf, "/dev/semg-usb%d", 0);
 	fd0 = open(strbuf, O_RDONLY);
 	if (fd0 < 0) {
 		perror("open usb0 error");
 		return -1;
 	}
-	// sprintf(strbuf, "/dev/semg-usb%d", 2);
+	// sprintf(strbuf, "/dev/semg-usb%d", 1);
 	// fd1 = open(strbuf, O_RDONLY);
 	// if (fd1 < 0) {
 	// 	perror("open usb0 error");
 	// 	return -1;
 	// }
 
-for (;;) {
 	if ((start = clock_gettime(CLOCK_REALTIME, &tpstart)) == -1) {
 		printf("times error");
 		return -1;
 	}
-#ifdef SEMG_ARM
-	Led_on(1);
-#endif
-	count = read(fd0, inbuffer, 3257);
+
+	memset(&aiocb, 0, sizeof(aiocb));
+	aiocb.aio_buf = inbuffer;
+	aiocb.aio_sigevent.sigv_notify = SIGEV_NONE;
+	aiocb.aio_fildes = fd0;
+	aiocb.aio_offset = 0;
+	aiocb.aio_nbytes = 3257;
+
+	if (aio_read(&aiocb) < 0) {
+		fprintf(stderr, "aio_read: error code:%d; %s\n", errno, strerror(errno));
+		return -1;
+	}
+
+	if ((aio_suspend(aiolist, 8, NULL)) < 0) {
+		fprintf(stderr, "aio_suspend: error code:%d; %s\n", errno, strerror(errno));
+		return -1;
+	}
+
 	if (count < 0) {
-		fprintf(stderr, "read0 error code:%d; %s\n", errno, strerror(errno));
+		fprintf(stderr, "error code:%d; %s\n", errno, strerror(errno));
 		//perror("read");
 		return -1;
 	}
-	
+
+	while ((retval = aio_error(&aiocb)) == EINRPOGRESS) {
+		fprintf(stderr, "still waiting\n");
+	}
+
+	if (retval != 0) { //if some error occurs
+		if (retval == -1) {
+			fprintf(stderr, "aio_error itself: error code:%d; %s\n", errno, strerror(errno));
+			return -1;
+		} else {
+			fprintf(stderr, "aio_error: error code:%d; %s\n", errno, strerror(errno));
+			return -1;
+		}
+
+	}
+
+	if ((count = aio_return(&aiocb)) < 0) {
+		fprintf(stderr, "aio_return: error code:%d; %s\n", errno, strerror(errno));
+			return -1;
+	}
 	// count = read(fd1, inbuffer, 3257);
 	// if (count < 0) {
-	// 	fprintf(stderr, "read1 error code:%d; %s\n", errno, strerror(errno));
+	// 	fprintf(stderr, "error code:%d; %s\n", errno, strerror(errno));
 	// 	//perror("read");
 	// 	return -1;
 	// }
-if ((end = clock_gettime(CLOCK_REALTIME, &tpend)) == -1) {
+
+	if ((end = clock_gettime(CLOCK_REALTIME, &tpend)) == -1) {
 		printf("times error");
 		return -1;
 	}
-#ifdef SEMG_ARM
-	Led_off(1);
-#endif
 	pri_times(end - start, &tpstart, &tpend);
-	
 	printf("count:%zd", count);
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < 10; i++) {
 		if ((i % 10) ==0 ) printf("\n");
 		printf("%#x,", inbuffer[i]);
 	}
 	printf("\n");
-	sleep(1);
 	//printf("%zd:%#x, %#x, %#x, %#x, %#x, %#x, %#x, %#x\n", count, inbuffer[1019], inbuffer[1020], inbuffer[1021], inbuffer[1022], 
 	//	inbuffer[1023], inbuffer[1024], inbuffer[1025], inbuffer[1026]);
-}
+
 	return 0;
 }
 

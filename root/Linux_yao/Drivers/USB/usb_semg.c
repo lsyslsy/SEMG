@@ -17,18 +17,21 @@
 #include <linux/poll.h>
 #include <linux/delay.h>
 #include <asm/atomic.h>
+
+
+#ifdef SEMG_ARM
 #include <asm/io.h>
 #include <mach/map.h>
 #include <plat/gpio-cfg.h>
 #include <mach/regs-gpio.h>
 #include <mach/gpio-bank-m.h>
-
+#endif
 //#define ASYNC_NOTIFY_SUPPORT
 //#define POLL_SUPPORT 
 
 //TODO
 #define USB_SEMG_VENDOR_ID 		0x05AC
-#define USB_SEMG_PRODUCT_ID 	0x1111
+#define USB_SEMG_PRODUCT_ID 	0x2222
 
 #define SEMG_FRAME_SIZE 		3257
 #define ISOC_IN_BUFFER_SIZE 	4096		/* 页大小为4096，验证过 */
@@ -47,6 +50,7 @@ struct usb_semg {
 	atomic_t open_cnt; 					/* 剩余可打开次数，仅可打开一次，每打开一次减1 */
 	struct usb_device 	*udev;			/* usb device */
 	struct usb_interface 	*interface;  /* usb interface 的引用*/
+
 	__u8            isoc_in_endpointAddr;
 	size_t 			isoc_in_size;		/* the size of the receive buffer */
 	size_t			isoc_in_filled;		/* number of bytes in the buffer */
@@ -57,6 +61,19 @@ struct usb_semg {
 	dma_addr_t	isoc_in_buffer_dma;
 	struct urb 		*isoc_in_urb;		/* 用来读取数据的urb*/
 	struct completion 	isoc_in_completion; 	/* completion for read */
+
+	__u8            bulk_in_endpointAddr;
+	size_t 			bulk_in_size;		/* the size of the receive buffer */
+	size_t			bulk_in_filled;		/* number of bytes in the buffer */
+	size_t			bulk_in_copied;		/* already copied to user space */
+	size_t 			bulk_in_packetsize;		/* Max Packet size of isoc endpoint */
+	size_t 			bulk_in_npackets;	/* number of packets: must be 4 */
+	void 	*bulk_in_buffer;
+	dma_addr_t	bulk_in_buffer_dma;
+	struct urb 		*bulk_in_urb;		/* 用来读取数据的urb*/
+	struct completion 	bulk_in_completion; 	/* completion for read */
+
+
 	spinlock_t 	err_lock; 			//lock for errors
 	int 			errors; 			//上次传输的错误结果
 	struct kref 	kref;				/* 设备引用计数 */
@@ -74,21 +91,62 @@ static void semg_delete(struct kref *kref) {
 	struct usb_semg *dev = to_semg_dev(kref);
 
 	usb_free_urb(dev->isoc_in_urb);
+	usb_free_urb(dev->bulk_in_urb);
 	usb_put_dev(dev->udev);
-	usb_free_coherent(dev->udev, dev->isoc_in_size, dev->isoc_in_buffer, //函数会处理isoc_in_buffer==NULl 的情况
+	if (dev->isoc_in_buffer != NULL)
+		usb_free_coherent(dev->udev, dev->isoc_in_size, dev->isoc_in_buffer, //函数会处理isoc_in_buffer==NULl 的情况
 					dev->isoc_in_buffer_dma);
+	if (dev->bulk_in_buffer != NULL)
+		usb_free_coherent(dev->udev, dev->bulk_in_size, dev->bulk_in_buffer, //函数会处理isoc_in_buffer==NULl 的情况
+					dev->bulk_in_buffer_dma);
 }
 
+
+static void semg_read_bulk_callback(struct urb *urb)
+{
+	struct usb_semg *dev = urb->context;
+	int i;
+	unsigned int tmp;
+#ifdef SEMG_ARM
+	tmp = readl(S3C64XX_GPMDAT);
+	tmp |= 1;
+	writel(tmp, S3C64XX_GPMDAT);
+#endif
+	spin_lock(&dev->err_lock);
+	
+/* sync/async unlink faults aren't errors */
+	if (urb->status) {
+		if (!(urb->status == -ENOENT ||
+		    urb->status == -ECONNRESET ||
+		    urb->status == -ESHUTDOWN))
+			dev_err(&dev->interface->dev, "%s - nonzero write bulk status received: %d",
+			    __func__, urb->status);
+
+		dev->errors = urb->status;
+	} else {
+		//dev->isoc_in_filled = 0;
+		dev->bulk_in_filled = urb->actual_length;//TODO = or +=
+	}
+	
+	spin_unlock(&dev->err_lock);
+#ifdef ASYNC_NOTIFY_SUPPORT
+	if (dev->async_queue)
+		kill_fasync(&dev->async_queue, SIGIO, POLL_IN);
+#endif
+
+	complete(&dev->bulk_in_completion);
+}
 
 static void semg_read_isoc_callback(struct urb *urb)
 {
 	struct usb_semg *dev = urb->context;
 	int i;
 	unsigned int tmp;
-
+#ifdef SEMG_ARM
 	tmp = readl(S3C64XX_GPMDAT);
 	tmp |= 1;
 	writel(tmp, S3C64XX_GPMDAT);
+#endif
 	spin_lock(&dev->err_lock);
 	/* sync/async unlink faults aren't errors */
 	//TODO
@@ -127,14 +185,13 @@ static void semg_read_isoc_callback(struct urb *urb)
 
 	complete(&dev->isoc_in_completion);
 }
-
 /*
  * Block Read
  */
 static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count, loff_t *pos) {
 
 	struct usb_semg *dev = (struct usb_semg *)file->private_data;
-	struct urb  *urb = dev->isoc_in_urb;
+	struct urb  *urb = dev->bulk_in_urb;
 	unsigned int i;
 	int retval = 0;
 	unsigned int tmp;	
@@ -142,33 +199,41 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	//dev->isoc_in_buffer = usb_alloc_coherent(dev->udev, )
 
 	mutex_lock(&dev->io_mutex);
+
+#ifdef SEMG_ARM
 	tmp = readl(S3C64XX_GPMDAT);
 	tmp &= ~1;
 	writel(tmp, S3C64XX_GPMDAT);
+#endif
 	/* 初始化urb */
-	urb->dev = dev->udev;
-	urb->pipe = usb_rcvisocpipe(dev->udev, dev->isoc_in_endpointAddr);
-	urb->interval = 1;///TODO:not sure//yes sure
-	urb->context = dev;
-	urb->complete = semg_read_isoc_callback;
-	urb->transfer_buffer = dev->isoc_in_buffer;		 
-	urb->transfer_dma = dev->isoc_in_buffer_dma;
-	urb->number_of_packets = dev->isoc_in_npackets;
-	//urb->start_frame = usb_get_current_frame_number(urb->dev) - 10;
-	urb->transfer_buffer_length = dev->isoc_in_size;      //TODO   是不是该使用SEMG_FRAME_SIZE;
-	urb->transfer_flags = URB_ISO_ASAP | URB_NO_TRANSFER_DMA_MAP;//尽早开始同步传输，优选使用DMA传输
-	/* 设置isoc各帧的缓冲区位移，每帧预计长度 */
-	for (i = 0; i < urb->number_of_packets - 1; i++) {
-		urb->iso_frame_desc[i].offset = i * dev->isoc_in_packetsize;
-		//expected length, 实际读到的大小是由设备决定的，
-		//如果收到的数据长度>length，则会产生EOVERFLOW的错误;如果实际数据长度<length，则读到的acutal_length<length
-		urb->iso_frame_desc[i].length = dev->isoc_in_packetsize; 	
-	}
-	urb->iso_frame_desc[i].offset = i * dev->isoc_in_packetsize;
-	urb->iso_frame_desc[i].length = SEMG_FRAME_SIZE - i * dev->isoc_in_packetsize;
+	// urb->dev = dev->udev;
+	// urb->pipe = usb_rcvisocpipe(dev->udev, dev->isoc_in_endpointAddr);
+	// urb->interval = 1;///TODO:not sure//yes sure
+	// urb->context = dev;
+	// urb->complete = semg_read_isoc_callback;
+	// urb->transfer_buffer = dev->isoc_in_buffer;		 
+	// urb->transfer_dma = dev->isoc_in_buffer_dma;
+	// urb->number_of_packets = dev->isoc_in_npackets;
+	// //urb->start_frame = usb_get_current_frame_number(urb->dev) - 10;
+	// urb->transfer_buffer_length = dev->isoc_in_size;      //TODO   是不是该使用SEMG_FRAME_SIZE;
+	// urb->transfer_flags = URB_ISO_ASAP | URB_NO_TRANSFER_DMA_MAP;//尽早开始同步传输，优选使用DMA传输
+	// /* 设置isoc各帧的缓冲区位移，每帧预计长度 */
+	// for (i = 0; i < urb->number_of_packets - 1; i++) {
+	// 	urb->iso_frame_desc[i].offset = i * dev->isoc_in_packetsize;
+	// 	//expected length, 实际读到的大小是由设备决定的，
+	// 	//如果收到的数据长度>length，则会产生EOVERFLOW的错误;如果实际数据长度<length，则读到的acutal_length<length
+	// 	urb->iso_frame_desc[i].length = dev->isoc_in_packetsize; 	
+	// }
+	// urb->iso_frame_desc[i].offset = i * dev->isoc_in_packetsize;
+	// urb->iso_frame_desc[i].length = SEMG_FRAME_SIZE - i * dev->isoc_in_packetsize;
 
-	//dev_info(&dev->interface->dev, " %#x: packets of number:%zd, total size:%zd, max size:%zd", dev->isoc_in_endpointAddr,
-	//	dev->isoc_in_npackets , dev->isoc_in_size, dev->isoc_in_packetsize);
+	// //dev_info(&dev->interface->dev, " %#x: packets of number:%zd, total size:%zd, max size:%zd", dev->isoc_in_endpointAddr,
+	// //	dev->isoc_in_npackets , dev->isoc_in_size, dev->isoc_in_packetsize);
+	usb_fill_bulk_urb(urb, dev->udev, usb_rcvbulkpipe(dev->udev, dev->bulk_in_endpointAddr),
+				dev->bulk_in_buffer, dev->bulk_in_size, semg_read_bulk_callback, dev);
+	urb->transfer_dma = dev->bulk_in_buffer_dma;
+	urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
+
 	/* submit urb */
 	retval = usb_submit_urb(urb, GFP_KERNEL);
 	if (retval < 0) {
@@ -177,9 +242,9 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
                     __func__, retval);
 		goto out;
 	}
-
+	/* submit urb */
 	/*wait for read operation complete*/
-	wait_for_completion(&dev->isoc_in_completion);
+	wait_for_completion(&dev->bulk_in_completion);
 	//while (dev->isoc_in_filled != SEMG_FRAME_SIZE)
 	//	msleep(1);
 	//goto out;
@@ -190,9 +255,9 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 		/* any error is reported once */
 		dev->errors = 0;
 		/* to preserve notifications about reset */
-		//retval = (retval == -EPIPE) ? retval : -EIO;
+		retval = (retval == -EPIPE) ? retval : -EIO;
 		/* no data to deliver */
-		dev->isoc_in_filled = 0;
+		dev->bulk_in_filled = 0;
 		spin_unlock(&dev->err_lock);
 		/* report it */
 		goto out;
@@ -200,15 +265,15 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	spin_unlock(&dev->err_lock);
 
 	//TODO
-	if((dev->isoc_in_filled != SEMG_FRAME_SIZE) || (SEMG_FRAME_SIZE != count)) {
-		dev_err(&dev->interface->dev, "total received size :%zd\n", dev->isoc_in_filled);
+	if((dev->bulk_in_filled != SEMG_FRAME_SIZE) || (SEMG_FRAME_SIZE != count)) {
+		dev_err(&dev->interface->dev, "total received size :%zd\n", dev->bulk_in_filled);
 		retval = -EINVAL;
 		goto out;
 	}
 
 	//if (count > dev->isoc_in_filled)
 	//	count = dev->isoc_in_filled;
-	if(copy_to_user(user_buf, dev->isoc_in_buffer, count)) {
+	if(copy_to_user(user_buf, dev->bulk_in_buffer, count)) {
 		retval = -EFAULT;
 		goto out;
 	}
@@ -381,6 +446,7 @@ static int semg_probe(struct usb_interface *interface,
 
 	mutex_init(&dev->io_mutex);
 	init_completion(&dev->isoc_in_completion);
+	init_completion(&dev->bulk_in_completion);
 	atomic_set(&dev->open_cnt, 1);			/* only can be opened once */ 
 	kref_init(&dev->kref);
 	spin_lock_init(&dev->err_lock); 		
@@ -411,13 +477,41 @@ static int semg_probe(struct usb_interface *interface,
 				goto error;
 			}
 
+		} else if (!dev->bulk_in_endpointAddr && usb_endpoint_is_bulk_in(endpoint)) {
+			ep_max_size = le16_to_cpu(endpoint->wMaxPacketSize);
+			ep_max_size = (ep_max_size & 0x07ff) * (1 + ((ep_max_size >> 11) & 3));		/* 高速每小帧可传输1-4事务，虽然用不到，还是考虑进去 */
+
+			dev->bulk_in_endpointAddr = endpoint->bEndpointAddress;
+			dev->bulk_in_packetsize = ep_max_size;
+			dev->bulk_in_npackets = DIV_ROUND_UP(SEMG_FRAME_SIZE, dev->bulk_in_packetsize);		/* 计算包数量即事务数，对于full speed就是帧数量 */
+			dev->bulk_in_size = dev->bulk_in_packetsize * dev->bulk_in_npackets;
+			/* 分配dma缓冲区，获得dma地址和cpu空间的地址 */
+			dev->bulk_in_buffer =usb_alloc_coherent(dev->udev, dev->bulk_in_size,
+					GFP_KERNEL, &dev->bulk_in_buffer_dma);//kmalloc(dev->bulk_in_size, GFP_KERNEL);// 
+			if (!dev->bulk_in_buffer) {
+				dev_err(&interface->dev, "Cannot allocate bulk_in_buffer");
+				goto error;
+			}
+
+			/* 分配bulk的urb */
+			dev->bulk_in_urb = usb_alloc_urb(dev->bulk_in_npackets/*dev->bulk_in_packetsize*/, GFP_KERNEL);
+			if (!dev->bulk_in_urb) {
+				dev_err(&interface->dev, "%s - Cannot allocate bulk_in_buffer", __func__);
+				goto error;
+			}
+
 		}
 	}
-	if (!(dev->isoc_in_endpointAddr)) {
-		dev_err(&interface->dev, "Cannot find isochronus enpoint");
+
+	// if (!(dev->isoc_in_endpointAddr)) {
+	// 	dev_err(&interface->dev, "Cannot find isochronus enpoint");
+	// 	goto error;
+	// }
+
+	if (!(dev->bulk_in_endpointAddr)) {
+		dev_err(&interface->dev, "Cannot find bulk enpoint");
 		goto error;
 	}
-
 	/* save semg dev pointer to this interface device */
 	usb_set_intfdata(interface, dev);
 
