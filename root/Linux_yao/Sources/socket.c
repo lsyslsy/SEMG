@@ -31,7 +31,6 @@ extern struct root root_dev;
 extern pthread_mutex_t mutex_buff;
 extern pthread_cond_t cond_tick;
 extern unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE];
-extern char used_branch[BRANCH_USED_NUM]; 
 /**
  * The main socket function, init socket, listen for conneting
  * if client port is down, func will continue to accept another
@@ -73,11 +72,16 @@ void FunSocket()
 		print_socket_info(connsock);
 		err = setsockopt(connsock, SOL_SOCKET, SO_SNDBUF, (char *) &BufLen,
 				optlen);//bufsize = 65536(32*1024 * 2)
+		if (err) {
+			perror("setsockopt failed");
+			goto out1;
+		}
 		while (1)
 		{
 			pthread_mutex_lock(&mutex_buff);
 			pthread_cond_wait(&cond_tick, &mutex_buff);
 			//DebugInfo("socket thread is running!%ld\n", tick++);
+			// TODO: check sync 8 branches
 			length = recv(connsock, &cmd, 1, 0);
 
 			if (length <= 0)
@@ -105,6 +109,7 @@ void FunSocket()
 				pthread_mutex_unlock(&mutex_buff);
 			}
 		}//while(1)
+out1:
 		close(connsock);
 	}//while(1)
 	close(listensock);
@@ -166,12 +171,10 @@ int send_task(int connsock, char cmd)
  **/
 void data_packet(unsigned char *pbuf, unsigned int *psize)
 {
-	int i, j;
-	unsigned int temp_size;
+	int i;
 	unsigned char * p = pbuf+2;
-	for (j = 0; j < BRANCH_USED_NUM; j++)//包长可调
+	for (i = 0; i < BRANCH_NUM; i++) //TODO 包长可调
 	{
-		i = used_branch[j];
 		if(data_pool[i][0] == 0x48)
 			pbuf[0] = 0x48;
 		if(data_pool[i][0] == 0xee)

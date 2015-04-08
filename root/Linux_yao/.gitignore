@@ -1,0 +1,9 @@
+!Debug
+Debug/*
+!Debug/makefile
+!Debug/objects.mk
+!Debug/sources.mk
+
+!Debug/Sources
+Debug/Sources/*
+!Debug/Sources/subdir.mk

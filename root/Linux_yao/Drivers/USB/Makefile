@@ -24,9 +24,9 @@ endif
 PWD := $(shell pwd)
 # EXTRA_CFLAGS += $(DEBFLAGS)
 all: modules test
-modules: usb_semg.c
+modules: usb_semg.c usb_semg.h
 	$(MAKE) -Wall  -C $(KERNELDIR) M=$(PWD) modules
-test: usb_test.c led.c
+test: usb_test.c led.c usb_semg.h led.h
 	$(CCC) -Wall -lrt usb_test.c led.c -o usb_test
 install:
 	cp usb_semg.ko /forlinx/share

@@ -33,8 +33,12 @@ extern unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE];
 
 extern pthread_mutex_t mutex_buff;
 extern pthread_cond_t cond_tick;
+
+static unsigned char spi_recv_buf[BRANCH_NUM][BRANCH_BUF_SIZE]={{0}};
+
+
+#ifdef ARM_VERSION
 //#define SPI_MODE_1		(0|SPI_CPHA)
-static unsigned char spi_recv_buf[BRANCH_NUM][BRANCH_BUF_SIZE]={0};
 static unsigned char mode = SPI_MODE_1;//spi mode
 static unsigned char bits = 8;
 static unsigned int speed = 4156250;/*max clk:33250KHZ 256 division
@@ -47,7 +51,6 @@ static unsigned int speed = 4156250;/*max clk:33250KHZ 256 division
  * Is_branch_ready: 判断branch是否将数据准备好
  * @num: branch号
  */
-
 static bool Is_branch_ready(int num)
 {
 	char input;
@@ -85,7 +88,6 @@ static bool Is_branch_low(int num)
  * Data shift order: MSB first
  *
  */
-
 static int spi_init(int fd)
 {
 	int ret = 0;
@@ -103,6 +105,7 @@ static int spi_init(int fd)
 		return ret;
 	return 0;
 }
+#endif
 
 //!function forward declaration.
 static int ParseDataPacket(unsigned char *p, int n);
@@ -120,47 +123,47 @@ void FunBranch(void* parameter)
 {
 	pthread_cleanup_push(pthread_mutex_unlock, &mutex_buff);
 	struct branch *bx;
-	unsigned char tx_buf[8] =
-	{ 0 };
-	unsigned char rx_buf[8] =
-	{ 0 };
 	unsigned char *pbuf;
-	int branch_num, dev_spi, ret, size;
-	unsigned long i;
+	int ret, size;
+	int branch_num = (int) parameter;
+	//unsigned long i;
 	unsigned long tick = 0;//回绕是个问题, 用Jiffies是否更好
-	//spi和数据处理的是否应该分开两个锁
-	struct timespec slptm;
-	branch_num = (int) parameter;
+	//TODO spi和数据处理的是否应该分开两个锁
+	//struct timespec slptm;
 
 	bx = &branches[branch_num];
 	
-	dev_spi = open(bx->device, O_RDWR);
-	if (dev_spi < 0)
-	{
-		DEBUG_ERROR("open spi%d failed!\n", branch_num);
-		pthread_exit(NULL);
-	}
+	// dev_spi = open(bx->device, O_RDON);
+	// if (dev_spi < 0) {
+	// 	DebugError("open usb%d failed!\n", branch_num);
+	// 	pthread_exit(NULL);
+	// }
+
+#ifdef ARM_VERSION
 	ret = spi_init(dev_spi);
 	if (ret < 0)
 	{
-		DEBUG_ERROR("init spi%d failed!\n", branch_num);
-		pthread_exit(NULL);
+		DebugError("init spi%d failed!\n", branch_num);
+		//pthread_exit(NULL);
+		goto out;
 	}
+#endif
+
 	BranchDataInit(spi_recv_buf[branch_num], branch_num);
-	int period = 100;
-	unsigned int t = 0;
 	pbuf = spi_recv_buf[branch_num];
-	memcpy(data_pool[branch_num], pbuf, BRANCH_BUF_SIZE);
+	memcpy(bx->data_pool, pbuf, BRANCH_BUF_SIZE);
 	while (1)
 	{
 		pthread_mutex_lock(&mutex_buff);
 		pthread_cond_wait(&cond_tick, &mutex_buff);
 		//相邻通道切换实测时间接近200 -500us   1ms以内
 		//同一通道读写函数产生实际时钟间隔约100us左右
-		//if (branch_num == 0 || branch_num == 7)
-		//DebugInfo("branch%d thread is running!%ld\n", branch_num, tick++);
-		
-#ifdef ARM_VERSION 
+		// if (branch_num == 0 || branch_num == 7)
+		// DebugInfo("branch%d thread is running!%ld\n", branch_num, tick++);
+
+
+#ifndef MONI_DATA
+	#ifdef ARM_VERSION
 		
 		///想办法先MISO 再判断MOSI
 		///或者先MOSI 再MISO
@@ -171,23 +174,23 @@ void FunBranch(void* parameter)
 		if(branch_num == 0)			/* only wait when branchnum=0 */
 			while (!Is_branch_ready(branch_num) && waittimes > 0)
 				waittimes--;
-		size = read(dev_spi, pbuf, 3257);
-		if(size < 0)//some error with dma
-		{
-			data_pool[branch_num][0] = 0x48;//spi you gui le
+	#endif
+
+		size = read(bx->devfd, pbuf, 3258);
+		if(size != 3258) { // any unresolved error
+			bx->data_pool[0] = 0x48;//spi you gui le
+			DebugError("read usb%d failed(ErrCode %d): %s\n", branch_num, errno, strerror(errno));
 			goto spi_error;
 		}
 		int tmp = ParseDataPacket(pbuf, branch_num);
-		if (tmp == 0)
-		{
+		if (tmp == 0) {
 			print_data(pbuf, branch_num);
 			//Data verified, then copy to socket
-			memcpy(data_pool[branch_num], pbuf, BRANCH_BUF_SIZE);
+			memcpy(bx->data_pool, pbuf, BRANCH_BUF_SIZE);
 		}
-		else
-		{
+		else {
 			/***********************tmp*****************/
-			data_pool[branch_num][0] = 0xee; //data error
+			bx->data_pool[0] = 0xee; //data error
 			DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
 					branch_num, tmp);
 			printf("read:%d,%x,%x,%x,%x,%x\n", size, pbuf[0], pbuf[1], pbuf[2],
@@ -197,21 +200,22 @@ void FunBranch(void* parameter)
 
 		//usleep(1);
 #else
+		int period = 100;
 		pbuf = bx->data_pool;
 		*pbuf = 0xb7;
 		*(pbuf + 1) = branch_num;
 		*(pbuf + 2) = (BRANCH_DATA_SIZE >> 8);
 		*(pbuf + 3) = (unsigned char) BRANCH_DATA_SIZE;
-		pbuf += 8;
+		pbuf += 9;
 		moni_data(pbuf, CHANNEL_NUM_OF_BRANCH , branch_num, &t, &period);
 #endif
 
 		spi_error: pthread_mutex_unlock(&mutex_buff);
 	}//while(1)
 
-
-	close(dev_spi);
-
+out:
+	close(bx->devfd);
+	bx->devfd = -1;
 	pthread_cleanup_pop(0);
 }//FunBranch()
 
@@ -260,7 +264,7 @@ static int ParseDataPacket(unsigned char *p, int n)
 		count++;
 	if (p[3] != (unsigned char) BRANCH_DATA_SIZE)
 		count++;
-	p += 8;
+	p += 9;
 	for (i = 0; i < CHANNEL_NUM_OF_BRANCH; i++)
 	{
 		if (*p != 0x11)
@@ -324,9 +328,9 @@ void moni_data(unsigned char *pbuf, int channel_num, int branch_num, unsigned in
 
 static void print_data(unsigned char * pbuf, int branch_num)
 {
-	unsigned char buf_lbl = pbuf[6] & 0x01U;
-	unsigned char buf_status = pbuf[6] >> 1 & 0x07U;
-	unsigned char buf_ov = pbuf[7];
+	unsigned char buf_lbl = pbuf[7] & 0x01U;
+	unsigned char buf_status = pbuf[7] >> 1 & 0x07U;
+	unsigned char buf_ov = pbuf[8];
 
 	char ch_buf_lbl[6];
 	switch (buf_lbl)
@@ -342,8 +346,6 @@ static void print_data(unsigned char * pbuf, int branch_num)
 	char ch_status[9];
 	switch (buf_status)
 	{
-	case -1:
-		break;
 	case 0:
 		strcpy(ch_status, "Empty");
 		break;
@@ -362,5 +364,9 @@ static void print_data(unsigned char * pbuf, int branch_num)
 		break;
 	}
 	DebugInfo("Branch%d Data Right. Buf %s. Status: %s. OV: %d. \n",
-			branch_num, ch_buf_lbl, ch_status, buf_ov, pbuf[6]);
+			branch_num, ch_buf_lbl, ch_status, buf_ov);
+	DebugInfo("\033[40;34mbn\033[0m: %d, ", pbuf[1]);
+	DebugInfo("\033[40;34mfn\033[0m: %d, ", pbuf[4] << 8 | pbuf[5]);
+	DebugInfo("\033[40;34mwait\033[0m: %d\n", pbuf[6]);
+	DebugInfo("\n");
 }

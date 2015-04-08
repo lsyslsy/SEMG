@@ -3,7 +3,7 @@
 
 #define DBUG_THREAD
 
-#define ARM_VERSION // ARM版本
+//#define ARM_VERSION // ARM版本
 //#define TEST_MODE
 
 //============ setting ===========//
@@ -17,23 +17,23 @@
 	#ifdef DEBUG_INFO
 		#define DebugInfo(x, args...)  printf(x, ##args)
 	#else
-		#define DebugInfo(x, args...)
+		#define DebugInfo(x, args...) (void);
 	#endif
 	#ifdef DEBUG_WARN
 		#define DebugWarn(x, args...) printf(x, ##args)
 	#else
-		#define DebugWarn(x, args...)
+		#define DebugWarn(x, args...) (void);
 	#endif
 	#ifdef DEBUG_ERROR
-		#define DebugError(x, args...) printf(x, ##args)
+		#define DebugError(x, args...) fprintf(stderr, x, ##args)
 	#else
-		#define DebugError(x, args...)
+		#define DebugError(x, args...) (void);
 	#endif
 
 #else
-	#define DebugWarn(x, args...)
-	#define DebugError(x, args...)
-	#define DebugInfo(x, args...)
+	#define DebugWarn(x, args...) (void);
+	#define DebugError(x, args...) (void);
+	#define DebugInfo(x, args...) (void);
 
 #endif
 

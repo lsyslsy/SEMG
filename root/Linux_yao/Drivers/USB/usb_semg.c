@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <asm/atomic.h>
 
+#include "usb_semg.h"
 
 #ifdef SEMG_ARM
 #include <asm/io.h>
@@ -33,7 +34,7 @@
 #define USB_SEMG_VENDOR_ID 		0x05AC
 #define USB_SEMG_PRODUCT_ID 	0x2222
 
-#define SEMG_FRAME_SIZE 		3257
+#define SEMG_FRAME_SIZE 		3258
 #define ISOC_IN_BUFFER_SIZE 	4096		/* 页大小为4096，验证过 */
  
 /* usb设备的次设备号起始 */
@@ -119,7 +120,7 @@ static void semg_read_bulk_callback(struct urb *urb)
 		if (!(urb->status == -ENOENT ||
 		    urb->status == -ECONNRESET ||
 		    urb->status == -ESHUTDOWN))
-			dev_err(&dev->interface->dev, "%s - nonzero write bulk status received: %d",
+			dev_err(&dev->interface->dev, "%s - nonzero read bulk status received: %d",
 			    __func__, urb->status);
 
 		dev->errors = urb->status;
@@ -400,6 +401,127 @@ static int semg_flush(struct file *file, fl_owner_t id) {
 	return 0;
 }
 
+// TODO: jiffies 个数, 参见驱动书355上部,有bug,防止在调用时被断开
+static int get_branch_num(struct file *filep) {
+	int retval = 0;
+	unsigned char n = 0;
+	struct usb_semg *dev = filep->private_data;
+	mutex_lock(&dev->io_mutex);
+	retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), 0x62, 0xC0, 0, 0, &n, sizeof(n), 20);
+	if (retval < 0) 
+		dev_err(&dev->interface->dev, "%s - getbranchnum failed: %d",
+				    __func__, retval);
+	// dev_info(&dev->interface->dev, "%s - received %d bytes, value:%d",
+	// 			    __func__, retval, n);
+	mutex_unlock(&dev->io_mutex);
+	return retval < 0? retval: n;
+}
+
+// TODO: jiffies 个数, 参见驱动书355上部,有bug,防止在调用时被断开
+static int set_delay(struct file *filep, __u16 ms) {
+	int retval = 0;
+	struct usb_semg *dev = filep->private_data;
+	mutex_lock(&dev->io_mutex);
+	retval = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0), 0x63, 0x40, ms, 0, 0, 0, 20);
+	if (retval < 0) 
+		dev_err(&dev->interface->dev, "%s - set delay failed: %d",
+				    __func__, retval);
+	// dev_info(&dev->interface->dev, "%s - send %d bytes, value:%d",
+	// 			    __func__, retval, ms);
+	mutex_unlock(&dev->io_mutex);
+	return retval < 0 ? retval: 0;
+}
+
+// get expected frame number
+static int get_expected_fn(struct file *filep) {
+	int retval = 0;
+	__u16 fn = 0; // frame number
+	struct usb_semg *dev = filep->private_data;
+	mutex_lock(&dev->io_mutex);
+	retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), 0x65, 0xC0, 0, 0, &fn, sizeof(fn), 20);
+	if (retval < 0) 
+		dev_err(&dev->interface->dev, "%s - get expected framenumber failed: %d",
+				    __func__, retval);
+	// dev_info(&dev->interface->dev, "%s - send %d bytes, value:%d",
+	// 			    __func__, retval, ms);
+	mutex_unlock(&dev->io_mutex);
+	return retval < 0 ? retval: fn;
+}
+
+static int set_expected_fn(struct file *filep, __u16 framenumber) {
+	int retval = 0;
+	struct usb_semg *dev = filep->private_data;
+	mutex_lock(&dev->io_mutex);
+	retval = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0), 0x64, 0x40, framenumber, 0, 0, 0, 20);
+	if (retval < 0) 
+		dev_err(&dev->interface->dev, "%s - set expected framenumber failed: %d",
+				    __func__, retval);
+	// dev_info(&dev->interface->dev, "%s - send %d bytes, value:%d",
+	// 			    __func__, retval, ms);
+	mutex_unlock(&dev->io_mutex);
+	return retval < 0 ? retval: 0;
+}
+
+// get init state
+// 100 200 300 400 
+static int get_init_state(struct file *filep) {
+	int retval = 0;
+	__u16 state = 0; // frame number
+	struct usb_semg *dev = filep->private_data;
+	mutex_lock(&dev->io_mutex);
+	retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), 0x66, 0xC0, 0, 0, &state, sizeof(state), 20);
+	if (retval < 0) 
+		dev_err(&dev->interface->dev, "%s - get init state failed: %d",
+				    __func__, retval);
+	// dev_info(&dev->interface->dev, "%s - send %d bytes, value:%d",
+	// 			    __func__, retval, ms);
+	mutex_unlock(&dev->io_mutex);
+	return retval < 0 ? retval: state;
+}
+
+// TODO: 确保在正确打开设备后才能ioctl
+long semg_ioctl(struct file * filep, unsigned int cmd, unsigned long arg)
+{
+	//int err = 0, tmp;
+	int retval = 0;
+	struct usb_semg *dev = filep->private_data;
+
+	/*
+	 * extract the type and number bitfields, and don't decode
+	 * wrong cmds: return ENOTTY (inappropriate ioctl) before access_ok()
+	 */
+	if (_IOC_TYPE(cmd) != USB_SEMG_IOC_MAGIC) return -ENOTTY;
+	if (_IOC_NR(cmd) > USB_SEMG_IOC_NR) return -ENOTTY;
+
+
+	switch(cmd) {
+		case USB_SEMG_GET_BRANCH_NUM:
+			return get_branch_num(filep);
+		case USB_SEMG_SET_DELAY:
+			if (arg <=0 || arg >= 1024)
+				return -EINVAL;
+			else
+				return set_delay(filep, (__u16)arg);
+		case USB_SEMG_SET_SAMPLEPERIOD:
+			break;	
+		case USB_SEMG_GET_CURRENT_FRAME_NUMBER:
+			return usb_get_current_frame_number(dev->udev);
+		case USB_SEMG_GET_EXPECTED_FRAME_NUMBER:
+			return get_expected_fn(filep);
+		case USB_SEMG_SET_EXPECTED_FRAME_NUMBER:
+			if (arg  >= 1024)
+				return -EINVAL;
+			else
+				return set_expected_fn(filep, (__u16)arg);
+		case USB_SEMG_GET_INIT_STATE:
+			return get_init_state(filep);
+		default:
+			return -ENOTTY;
+	}
+
+	return retval;
+
+}
 
 
 static const struct file_operations semg_fops = {
@@ -408,6 +530,7 @@ static const struct file_operations semg_fops = {
 	.write = 	semg_write,
 	.open = 	semg_open,	
 	.flush = 	semg_flush,
+	.unlocked_ioctl = semg_ioctl,
 #ifdef POLL_SUPPORT
 	.poll = 	semg_poll,
 #endif

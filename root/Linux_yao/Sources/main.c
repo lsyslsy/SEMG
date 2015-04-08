@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <sched.h>
+#include <errno.h>
 #include <sys/ioctl.h>
  
 #include "../Headers/main.h"
@@ -23,41 +24,46 @@
 #include "../Headers/led.h"
 #include "../Headers/semg_debug.h"
 #include "../Headers/pwm_sync.h"
+#include "../Drivers/USB/usb_semg.h"
  
 struct root root_dev;
-struct branch branches[BRANCH_NUM];//
+struct branch branches[BRANCH_NUM] = {{0}};//
 unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE] =
-{ 0 }; // branch data pool
+{{0}}; // branch data pool
 int branch_priority[BRANCH_NUM] =
 { 19, 18, 17, 16, 15, 14, 13, 12 };//优先数越大优先级越大
-char used_branch[BRANCH_USED_NUM] = {0,1,2,3,4,5,6,7};
+// char used_branch[BRANCH_USED_NUM] = {-1, -1, -1, -1, -1, -1, -1, -1};
+// static char thead_map_branch[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+// each elment is a branch num, should use lock sync
 pthread_mutex_t mutex_buff;
 pthread_cond_t cond_tick;
 
-//#ifdef ARM_VERSION
+#ifdef ARM_VERSION
 int Branch_Read_fd = -1;
 int pwm_sync_fd = -1;
-//#endif
+#endif
 
 //init the root status
 int root_init(void)
 {
 	root_dev.version = ROOT_VERSION;
-	root_dev.channel_num = CHANNEL_USED_NUM;
+	root_dev.channel_num = CHANNEL_NUM;
 	root_dev.AD_rate = RATE_1K;
-
+#ifdef ARM_VERSION
 	Branch_Read_fd = open("/dev/sEMG_Input", O_RDWR); // 打开标志输入脚0～7
 	if (Branch_Read_fd < 0)
 	{
 		perror("Can't open /dev/sEMG_Input");
 		return -1;
 	}
+#endif
 //#endif
 	pthread_mutex_init(&mutex_buff, NULL);
 	pthread_cond_init(&cond_tick, NULL);
 	return 0;
 }//root_init()
 
+#ifdef ARM_VERSION
 int pwm_sync_init(void)
 {
 	int err;
@@ -82,74 +88,145 @@ int pwm_sync_init(void)
 	err += ioctl(pwm_sync_fd, PWM_IOC_SET_FREQ, 10);
 	err += ioctl(pwm_sync_fd, PWM_IOC_START,NULL);
 	if(err) {
-		perror("ioctl");
+		perror("ioctl pwm_sync");
 		return -1;
 	}
 	return 0;
 
 }
+#endif
 
 /**
- * init the branches' status
+ * init the branches' status, 动态绑定branch到usb device
  */
 void branch_init()
 {
-	int i;
-	branches[0].num = 0;
-	branches[0].has_shakehanded = FALSE;
-	//branches[0].is_branch_ready = is_b0_ready;
-	branches[0].device = "/dev/spidev0.0";
-	branches[0].data_pool = data_pool[0];
-	branches[0].timeout = 0;
+	int i, j, retval, err;
+	int fd;
+	int n;
+	int current_fn = 22222;
+	char 			strbuf[20] ={0};
+	memset(branches, 0, sizeof(branches));
 
-	branches[1].num = 1;
-	branches[1].has_shakehanded = FALSE;
-	//branches[1].is_branch_ready = is_b1_ready;
-	branches[1].device = "/dev/spidev0.1";
-	branches[1].data_pool = data_pool[1];
-	branches[1].timeout = 0;
+	for (i = 0; i < BRANCH_NUM; i++) {
+		branches[i].num = i;
+		branches[i].devfd = -1;
+		branches[i].data_pool = data_pool[0];
+		branches[i].has_shakehanded = FALSE;
+		branches[i].is_connected = FALSE;
+		branches[i].need_shakehand = TRUE;
+		branches[i].timeout = 0;
+		branches[i].expected_fn = 11111;
+		branches[i].waitms = 0;
+	}
 
-	branches[2].num = 2;
-	branches[2].has_shakehanded = FALSE;
-	//branches[2].is_branch_ready = is_b2_ready;
-	branches[2].device = "/dev/spidev0.2";
-	branches[2].data_pool = data_pool[2];
-	branches[2].timeout = 0;
+	for (i = 0; i < 30; i++) {
+		sprintf(strbuf, "/dev/semg-usb%d", i);
+		fd = open(strbuf, O_RDWR);
+		if (fd < 0) {
+			close(fd);
+			continue;
+		}
+		err = ioctl(fd, USB_SEMG_GET_BRANCH_NUM, NULL);
+		if (err < 0) {
+			DebugError("ioctl semg_usb%d error: %s\n", i, strerror(errno));
+			close(fd);
+			continue;
+		}
+		n = err;
+		if (n <0 || n >= BRANCH_NUM) { // 我可不想被坑到
+			DebugError("ioctl semg_usb%d error: invalid branch number: %d\n", i, n);
+			close(fd);
+			continue;
+		}
 
-	branches[3].num = 3;
-	branches[3].has_shakehanded = FALSE;
-	//branches[3].is_branch_ready = is_b3_ready;
-	branches[3].device = "/dev/spidev0.3";
-	branches[3].data_pool = data_pool[3];
-	branches[3].timeout = 0;
+		if (branches[n].is_connected) { //重复连接
+			DebugError("detect error: branch %d duplicated\n", n);
+			close(fd);
+			continue;
+		}
 
-	branches[4].num = 4;
-	branches[4].has_shakehanded = FALSE;
-	//branches[4].is_branch_ready = is_b4_ready;
-	branches[4].device = "/dev/spidev0.4";
-	branches[4].data_pool = data_pool[4];
-	branches[4].timeout = 0;
+		branches[n].is_connected = TRUE;
+		branches[n].devfd = fd;
+		DebugInfo("binding semg-usb%d to branch %d\n", i, n);
 
-	branches[5].num = 5;
-	branches[5].has_shakehanded = FALSE;
-	//branches[5].is_branch_ready = is_b5_ready;
-	branches[5].device = "/dev/spidev0.5";
-	branches[5].data_pool = data_pool[5];
-	branches[5].timeout = 0;
+	}
 
-	branches[6].num = 6;
-	branches[6].has_shakehanded = FALSE;
-	//branches[6].is_branch_ready = is_b6_ready;
-	branches[6].device = "/dev/spidev0.6";
-	branches[6].data_pool = data_pool[6];
-	branches[6].timeout = 0;
+	j = 0;
+	// 再看下哪些设备是否都注册的
+	for (i = 0; i < BRANCH_NUM; i++) {
+		if (branches[i].is_connected == TRUE)
+			j++;
+	}
+	if (j > 0)
+		DebugInfo("total %d branches valid\n", j);
+	else {
+		DebugError("no branches valid\n");
+		exit(EXIT_FAILURE);
+	}
 
-	branches[7].num = 7;
-	branches[7].has_shakehanded = FALSE;
-	//branches[7].is_branch_ready = is_b7_ready;
-	branches[7].device = "/dev/spidev0.7";
-	branches[7].data_pool = data_pool[7];
-	branches[7].timeout = 0;
+	// 找到8个里面expected最大的那个,并加200ms,作为1次同步过程
+	
+	for (i = 0; i < BRANCH_NUM; i++) {
+		if (branches[i].is_connected == FALSE)
+			continue;
+		retval = ioctl(branches[i].devfd, USB_SEMG_GET_CURRENT_FRAME_NUMBER, NULL);
+		if (retval < 0) {
+			branches[i].is_connected = FALSE;
+			DebugError("branches%d ioctl: get current_fn failed\n", i);
+		} else {
+			current_fn = retval;
+			break;
+		}
+	}
+	if (current_fn == 22222) {
+		DebugError("no branches valid after ioctl get current_fn\n");
+		exit(EXIT_FAILURE);
+	}
+
+
+	current_fn = (current_fn+200)%1024; 		// delay 200 ms
+	// set all to sync
+	for (i = 0; i < BRANCH_NUM; i++) {
+		if (branches[i].is_connected == FALSE)
+			continue;
+
+		retval = ioctl(branches[i].devfd, USB_SEMG_SET_EXPECTED_FRAME_NUMBER, current_fn);
+		if (retval < 0) {
+			branches[i].is_connected = FALSE;
+			DebugError("branches%d ioctl: set expected_fn failed\n", i);
+			continue;
+		} 
+
+		retval = ioctl(branches[i].devfd, USB_SEMG_GET_EXPECTED_FRAME_NUMBER, NULL);
+		if (retval < 0) {
+			branches[i].is_connected = FALSE;
+			DebugError("branches%d ioctl: get expected_fn failed\n", i);
+			continue;
+		} else if (retval != current_fn){
+			branches[i].is_connected = FALSE;
+			DebugError("branches%d ioctl: get expected_fn not equals setted\n", i);
+			continue;
+		}
+	}
+	j = 0;
+	// 看下哪些设备还没注册的
+	for (i = 0; i < BRANCH_NUM; i++) {
+		if (branches[i].is_connected == FALSE)
+			DebugError("error: can't find branch %d\n", i);
+		else
+			j++;
+	}
+	if (j > 0)
+		DebugInfo("total %d branches valid\n", j);
+	else {
+		DebugError("no branches valid after ioctls\n");
+		exit(EXIT_FAILURE);
+	}
+
+	
+	//TODOO   要动态的查找(通过和下位机的通信)对应number的device,并赋值给.device,
+
 
 }//branch_init()
 static void show_thread_priority(pthread_attr_t *attr, int policy)
@@ -164,7 +241,7 @@ static void show_thread_priority(pthread_attr_t *attr, int policy)
 	pthread_getschedparam(pthread_self(), &policy,
                          &param);
 	printf("Current thread's priority:%d\n",param. __sched_priority);
-	printf("the main thread's pid is %d\n",pthread_self());
+	printf("the main thread's pid is %ld\n",pthread_self());
 }
 /**
  *main() funciton: contain 9 pthreads(1 socket send thread &&
@@ -177,6 +254,7 @@ int main()
 
 	int ret;
 	int i;
+	printf("The program is compiled on %s\n" , __DATE__);
 	i = getuid();
 	if (i == 0)
 		printf("The current user is root\n");
@@ -192,7 +270,7 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 	branch_init(); //8 branch init
-	printf("The program is compiled on %s\n" , __DATE__);
+	sleep(2); //方便看信息
 	struct sched_param param;
 	pthread_t p_socket;
 	pthread_attr_t attr_socket;
@@ -216,10 +294,10 @@ int main()
 	pthread_attr_setinheritsched(&attr_socket, PTHREAD_EXPLICIT_SCHED);//do not inherit father's attr
    // i=0;
 	 show_thread_priority(&attr_socket,  SCHED_RR);
-	 int j = 0;
-	for (j = 0; j < BRANCH_USED_NUM; j++)
+	for (i = 0; i < BRANCH_NUM; i++)
 	{
-		i = used_branch[j];
+		if (branches[i].is_connected == FALSE)
+			continue;
 		pthread_attr_init(&attr_branch[i]);
 		param.sched_priority = branch_priority[i];
 		pthread_attr_setschedpolicy(&attr_branch[i], SCHED_RR);
@@ -229,6 +307,7 @@ int main()
 		if( pthread_create(&p_branch[i], &attr_branch[i], (void *) FunBranch,
 				(void *) i))
 			DebugError("Create thread branch%d error\n",i);
+		DebugInfo("Create thread branch%d\n",i);
 	}
 
 	pthread_create(&p_socket, &attr_socket, (void *) FunSocket, NULL);
@@ -255,23 +334,27 @@ while(1)
  }*/
 
 	init_sigaction();//设置信号处理函数
+#ifdef ARM_VERSION
 	if(pwm_sync_init()) return -1;
-	//init_timer();//定时器
+#else
+	if (init_timer() < 0 )//定时器
+		exit(EXIT_FAILURE);
+#endif
 	//uninit
-   for (j = 0; j <BRANCH_USED_NUM; j++)
-	{
-		i = used_branch[j];
+   for (i = 0; i <BRANCH_NUM; i++) {
+		if (branches[i].is_connected == FALSE)
+			continue;
 		pthread_join(p_branch[i], NULL);
 		pthread_attr_destroy(&attr_branch[i]);
 	}
 	pthread_join(p_socket, NULL);
 	pthread_attr_destroy(&attr_socket);
 	pthread_mutex_destroy(&mutex_buff);
-//#ifdef ARM_VERSION
+#ifdef ARM_VERSION
 	//close(GPIO_L8_fd);
 	close(pwm_sync_fd);
 	close(Branch_Read_fd);
-//#endif
+#endif
     DebugInfo("the end");
 	return 0;
 }//main()

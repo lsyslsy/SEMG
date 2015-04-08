@@ -148,14 +148,15 @@
     <h4>2.1.3 数据通信</h4>
     <div>Branch和root数据通信过程</div>
     <table class="protocol">
-        <caption>Branch->root</caption>
+        <caption>Branch->root(共3258 `Bytes)</caption>
         <tr>
             <td>0xB7</td>
             <td>Branch_Num</td>
             <td>DataLenH</td>
             <td>DataLenL</td>
-            <td>TimestampH</td>
-            <td>TimestampL</td>
+            <td>FrameNumberH</td>
+            <td>FrameNumberL</td>
+            <td>WaitTime</td>
             <td>stateH</td>
             <td>stateL</td>
             <td class="data_td">Data</td>
@@ -167,8 +168,9 @@
         <li><span class="packet_field">Branch_Num</span>: Branch编号,0-7共8个，每个Branch携带(8/16 Channel)</li>
         <li><span class="packet_field">DataLenH</span>: 状态字节(留作扩展)</li>
         <li><span class="packet_field">DataLenL</span>: 通信数据</li>
-        <li><span class="packet_field">TimestampH</span>: 时间戳高8位</li>
-        <li><span class="packet_field">TimestampL</span>: 时间戳低8位</li>
+        <li><span class="packet_field">FrameNumberH</span>: Frame Number高8位</li>
+        <li><span class="packet_field">FrameNumberL</span>: Frame Number低8位</li>
+        <li><span class="packet_field">WaitTime</span>: 从准备发送到实际发送的FrameNumber之差,即等了多少ms</li>
         <li><span class="packet_field">StateH</span>: 状态标志高8位[7] - x
                 [6] - x
                 [5] - x

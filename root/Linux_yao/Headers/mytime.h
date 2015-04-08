@@ -8,7 +8,11 @@
 #ifndef _MYTIME_H
 #define _MYTIME_H
 
+#define sEMG_tick_sec 	0 // sec
+#define sEMG_tick_usec  100000  //usec
+
 void init_sigaction(void);
 void timeout_info(int signo);
+int init_timer(void);
 
 #endif
