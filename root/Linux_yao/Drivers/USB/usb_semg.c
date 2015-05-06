@@ -505,7 +505,7 @@ long semg_ioctl(struct file * filep, unsigned int cmd, unsigned long arg)
 		case USB_SEMG_SET_SAMPLEPERIOD:
 			break;	
 		case USB_SEMG_GET_CURRENT_FRAME_NUMBER:
-			return usb_get_current_frame_number(dev->udev);
+			return usb_get_current_frame_number(dev->udev) & 0x03ff;
 		case USB_SEMG_GET_EXPECTED_FRAME_NUMBER:
 			return get_expected_fn(filep);
 		case USB_SEMG_SET_EXPECTED_FRAME_NUMBER:

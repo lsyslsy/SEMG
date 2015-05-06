@@ -288,6 +288,7 @@ int main()
 	//SCHED_RR对应“时间片轮转法”，适合于每次运行需要较长时间的实时进程。
 	//SCHED_OTHER适合于交互式的分时进程。这类非实时进程的优先权取决于两个因素：
 	//进程剩余时间配额和进程的优先数nice（优先数越小，其优先级越高）。nice的取值范围是19~-20。
+	// 这个RR调度是针对相同优先级的，所以高优先级不释放，低优先级的线程还是无法执行，在这里结果和FIFO一样。
 	pthread_attr_setschedpolicy(&attr_socket, SCHED_RR);
 	pthread_attr_setschedparam(&attr_socket, &param);
 	//必需设置inher的属性为 PTHREAD_EXPLICIT_SCHED，否则设置线程的优先级会被忽略

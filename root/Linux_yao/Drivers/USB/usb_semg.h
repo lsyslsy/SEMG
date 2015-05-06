@@ -1,0 +1,33 @@
+#ifndef _USB_SEMG_H_
+#define _USB_SEMG_H_
+
+#define USB_SEMG_IOC_MAGIC 'y'
+
+#define USB_SEMG_GET_CURRENT_FRAME_NUMBER 	_IOR(USB_SEMG_IOC_MAGIC, 1, int)
+// RequestType RequestCode
+// 0xC0 0x62
+#define USB_SEMG_GET_BRANCH_NUM 			_IOR(USB_SEMG_IOC_MAGIC, 2, int)
+// 
+#define USB_SEMG_SET_SAMPLEPERIOD 			_IOW(USB_SEMG_IOC_MAGIC, 3, int)
+// 0x40 0x63
+#define USB_SEMG_SET_DELAY 					_IOW(USB_SEMG_IOC_MAGIC, 4, unsigned int)
+// 0x40 0x64
+#define USB_SEMG_SET_EXPECTED_FRAME_NUMBER 	_IOW(USB_SEMG_IOC_MAGIC, 5, int)
+// 0xC0 0x65
+#define USB_SEMG_GET_EXPECTED_FRAME_NUMBER 	_IOR(USB_SEMG_IOC_MAGIC, 6, int)
+// 0xC0 0x66
+#define USB_SEMG_GET_INIT_STATE 			_IOR(USB_SEMG_IOC_MAGIC, 7, int)
+// 0x40 0x67
+#define USB_SEMG_START_AD 					_IO(USB_SEMG_IOC_MAGIC, 8, int)
+// 0x40 0x68
+#define USB_SEMG_STOP_AD 					_IO(USB_SEMG_IOC_MAGIC, 9, int)
+//
+#define USB_SEMG_GET_AD_GAIN 				_IOR(USB_SEMG_IOC_MAGIC, 10, int)
+//
+#define USB_SEMG_SET_AD_GAIN 				_IOW(USB_SEMG_IOC_MAGIC, 11, int)
+
+
+#define USB_SEMG_IOC_NR 9
+
+
+#endif

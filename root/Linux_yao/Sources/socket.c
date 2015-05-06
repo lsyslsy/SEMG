@@ -45,6 +45,7 @@ void FunSocket()
 	int err = -1;
 	int length;
 	int listensock, connsock;
+	int reuse = 1;
 	struct sockaddr_in serveraddr;
 	clock_t start, end;
 	struct tms tmsstart, tmsend;
@@ -62,10 +63,20 @@ void FunSocket()
 	serveraddr.sin_family = AF_INET;
 	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);//监听所有IP地址
 	serveraddr.sin_port = htons(PORT);
-	//可能要加重绑定地址
-	bind(listensock, (struct sockaddr *) &serveraddr,
-			sizeof(struct sockaddr_in));
-	listen(listensock, 1);//接收一个连接请求
+	// 要加重绑定地址,因为'TCP的实现'在一段时间内不允许重复绑定同一地址
+	if (setsockopt(fd, SQL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int)) < 0) {
+		perror("sockopt reuse addr error");
+		pthread_exit((void *) 1);
+	}
+	if (bind(listensock, (struct sockaddr *) &serveraddr,
+			sizeof(struct sockaddr_in)) < 0) {
+		perror("bind socket error");
+		pthread_exit((void *) 1);
+	}
+	if (listen(listensock, 1) < 0) { //接收一个连接请求
+		perror("socket listen error");
+		pthread_exit((void *) 1);
+	}
 	while (1)
 	{
 		connsock = accept(listensock, (struct sockaddr *) NULL, NULL);
