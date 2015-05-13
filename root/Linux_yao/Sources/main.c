@@ -248,29 +248,30 @@ int main()
 	param.sched_priority = 20;
 	if( pthread_create(&p_branch, &thread_attr, (void *) FunBranch,
 			(void *) NULL))
-		DebugError("Create collect thread branch% error\n");
-	DebugInfo("Create collect thread branch, tid:\n", p_branch);
+		DebugError("Create collect thread branch error\n");
+	DebugInfo("Create collect thread branch, tid:%ld\n", p_branch);
 	usleep(100000); // 100ms
 
 	// process thread
-	if( pthread_create(&p_branch, &thread_attr, (void *) process,
+	param.sched_priority = 10;
+	if( pthread_create(&p_proces, &thread_attr, (void *) process,
 			(void *) NULL))
-		DebugError("Create process thread branch% error\n");
-	DebugInfo("Create process thread branch, tid:\n", p_branch);
+		DebugError("Create process thread branch error\n");
+	DebugInfo("Create process thread branch, tid:%ld\n", p_process);
 	usleep(100000); // 100ms
 
 	// coummunication thread
 	param.sched_priority = 15;
 	if( pthread_create(&p_socket, &thread_attr, (void *) FunSocket, NULL))
 		DebugError("Create socket thread branch error\n");
-	DebugInfo("Create socket thread branch, tid:\n", p_branch);
+	DebugInfo("Create socket thread branch, tid:%ld\n", p_socket);
 
 	pthread_attr_destroy(&thread_attr);
 
 	sleep(2); // 方便看信息
 
-	init_sigaction();//设置信号处理函数
-	if (init_timer() < 0 )//定时器
+	init_sigaction(); // 设置信号处理函数
+	if (init_timer() < 0 ) // 定时器
 		exit(EXIT_FAILURE);
 #endif
 	//uninit
