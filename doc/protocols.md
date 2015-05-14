@@ -97,6 +97,7 @@ root->PC
  - StateL: 状态标志低8位
  - Data: Branch数据
  - 0xED: 包尾
+
 ##### PC->>root
 *PC握手请求包*
 
