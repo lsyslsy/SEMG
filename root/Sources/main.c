@@ -23,15 +23,14 @@
 #include "../Headers/collect.h"
 #include "../Headers/led.h"
 #include "../Headers/semg_debug.h"
-#include "../Headers/pwm_sync.h"
 #include "../Drivers/USB/usb_semg.h"
 
 struct root root_dev;
 struct branch branches[BRANCH_NUM] = {{0}};//
 unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE] =
 {{0}}; // branch data pool
-pthread_mutex_t mutex_buff;
-pthread_cond_t cond_tick;
+extern pthread_mutex_t mutex_tick;
+extern pthread_cond_t cond_tick;
 
 //init the root status
 int root_init(void)
@@ -40,7 +39,7 @@ int root_init(void)
 	root_dev.channel_num = CHANNEL_NUM;
 	root_dev.AD_rate = RATE_1K;
 
-	pthread_mutex_init(&mutex_buff, NULL);
+	pthread_mutex_init(&mutex_tick, NULL);
 	pthread_cond_init(&cond_tick, NULL);
 	return 0;
 }//root_init()
@@ -215,6 +214,10 @@ int main()
 	ret = root_init();//linux device init
 	if (ret) {
 		DebugError("root_init error!\n");
+		exit(EXIT_FAILURE);
+	}
+	if (process_init()) {
+		DebugError("process_init failed!\n");
 		exit(EXIT_FAILURE);
 	}
 	branch_init(); //8 branch init

@@ -51,7 +51,7 @@ void FunSocket()
 	struct tms tmsstart, tmsend;
 	socklen_t optlen = sizeof(BufLen);
 	unsigned int clktck;
-	
+
 	if((clktck = sysconf(_SC_CLK_TCK)) < 0)
 	perror("sysconf error");
 	if ((listensock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
@@ -93,6 +93,8 @@ void FunSocket()
 			pthread_cond_wait(&cond_tick, &mutex_buff);
 			//DebugInfo("socket thread is running!%ld\n", tick++);
 			// TODO: check sync 8 branches
+			// wait for message from processer
+
 			length = recv(connsock, &cmd, 1, 0);
 
 			if (length <= 0)
@@ -106,7 +108,9 @@ void FunSocket()
 				if((start = times(&tmsstart)) == -1)
 					perror("times start error");
 					//sleep(2);
-					
+
+				// TODO:可以先select下，看下之前是否发送完成了，但是select返回可写只代表缓冲区有空啊
+				// 不一定发送完了，除非知道这种会积累一直到溢出
 				length = send_task(connsock, cmd);
 				if((end = times(&tmsend)) == -1)
 					perror("times end error");
