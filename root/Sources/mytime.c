@@ -104,7 +104,7 @@ void timeout_info(int signo)
     if (sync() < 0 ) // error or not enough time
         return;
 
-    pthread_mutex_lock(&mutex_tick)
+    pthread_mutex_lock(&mutex_tick);
     if (capture_state == 1) {
         DebugError("danger:still proccessing\n");
     }
@@ -113,7 +113,7 @@ void timeout_info(int signo)
     }
     capture_state = 0; // set state to start
     pthread_cond_signal(&cond_tick); // notify the condition to collector
-    pthread_mutex_unlock(&mutex_tick)
+    pthread_mutex_unlock(&mutex_tick);
 
   // printf("the timer lost %d signals\n",k);
   //be sure to run in main thread

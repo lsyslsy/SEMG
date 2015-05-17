@@ -22,15 +22,18 @@
 #include "../Headers/led.h"
 #include "../Headers/semg_debug.h"
 
+extern pthread_cond_t cond_tick;
+
 unsigned int PORT = SOCKET_PORT;
+unsigned char shakehand_buffer[SHAKEHAND_SIZE];
 unsigned char sendbuff[MAX_TURN_BYTE];//32KB
 unsigned int BufLen = MAX_TURN_BYTE;
 unsigned int send_size;
 unsigned int TimeStamp;
-extern struct root root_dev;
-extern pthread_mutex_t mutex_buff;
-extern pthread_cond_t cond_tick;
-extern unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE];
+unsigned int send_ready = 0; // 0: not ready, 1: ready
+pthread_mutex_t mutex_send;
+pthread_cond_t cond_send;
+
 /**
  * The main socket function, init socket, listen for conneting
  * if client port is down, func will continue to accept another
@@ -38,8 +41,6 @@ extern unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE];
  **/
 void FunSocket()
 {
-	//pid_t fd;
-	pthread_cleanup_push(pthread_mutex_unlock, (void *)&mutex_buff);
 	unsigned long tick = 0;
 	char cmd;
 	int err = -1;
@@ -64,7 +65,7 @@ void FunSocket()
 	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);//监听所有IP地址
 	serveraddr.sin_port = htons(PORT);
 	// 要加重绑定地址,因为'TCP的实现'在一段时间内不允许重复绑定同一地址
-	if (setsockopt(fd, SQL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int)) < 0) {
+	if (setsockopt(listensock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int)) < 0) {
 		perror("sockopt reuse addr error");
 		pthread_exit((void *) 1);
 	}
@@ -89,8 +90,10 @@ void FunSocket()
 		}
 		while (1)
 		{
-			pthread_mutex_lock(&mutex_buff);
-			pthread_cond_wait(&cond_tick, &mutex_buff);
+		 	pthread_mutex_lock(&mutex_send);
+	 		send_ready = 1;
+	 		pthread_cond_signal(&cond_send);
+	 		pthread_mutex_unlock(&mutex_send);
 			//DebugInfo("socket thread is running!%ld\n", tick++);
 			// TODO: check sync 8 branches
 			// wait for message from processer
@@ -100,7 +103,6 @@ void FunSocket()
 			if (length <= 0)
 			{
 				DebugError("client connect down!\n");
-				pthread_mutex_unlock(&mutex_buff);
 				break;
 			}
 			else
@@ -118,17 +120,14 @@ void FunSocket()
 				if (length <= 0)
 				{
 					DebugError("client connect down!\n");
-					pthread_mutex_unlock(&mutex_buff);
 					break;
 				}
-				pthread_mutex_unlock(&mutex_buff);
 			}
 		}//while(1)
 out1:
 		close(connsock);
 	}//while(1)
 	close(listensock);
-	pthread_cleanup_pop(0);
 }//FunSocket()
 
 /**
@@ -156,18 +155,12 @@ int send_task(int connsock, char cmd)
 		sendbuff[0] = RE_DATA_REQUEST;
 		sendbuff[3] = (TimeStamp >> 8) & 0x00FF;
 		sendbuff[4] = TimeStamp & 0x00FF;
-		sendbuff[5] = 0;
-		sendbuff[6] = 0;
-		send_size = 7;
-		pbuf = &sendbuff[0];
-		pbuf += 5;
-		//是一次性打包好  还是每个通道线程自己打包的好 这样怎能判断所有通道打包好了
-		data_packet(pbuf, &send_size);
-		//	printf("[3]:%x,[4]:%x,[5]:%x,[6]:%x,[7]:%x,[8]:%x,[9]:%x,[10]:%x\n",
-		//			sendbuff[3], sendbuff[4], sendbuff[5], sendbuff[6],
-		//			sendbuff[7], sendbuff[8], sendbuff[9], sendbuff[10]);
+		sendbuff[5] = 0; // state High
+		sendbuff[6] = 0; // state Low
+		send_size = 25992;
 		sendbuff[1] = (send_size >> 8) & 0x00FF;
 		sendbuff[2] = send_size & 0x00FF;
+		sendbuff[send_size -1 ] = DATA_END;
 		ret = send(connsock, sendbuff, send_size, 0);
 		break;
 		//case CONFIRM_ACK:

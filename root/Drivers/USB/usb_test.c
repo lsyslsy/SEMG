@@ -106,7 +106,7 @@ int main(int argc, char const *argv[])
 		pri_times(end - start, &tpstart, &tpend);
 #endif
 
-#ifdef TEST_DATA		
+#ifdef TEST_DATA
 		printf("count:%zd\n", count);
 		parsedata(inbuffer);
 #endif
@@ -122,7 +122,7 @@ int main(int argc, char const *argv[])
 		}
 #endif
 		usleep(100000);
-		//printf("%zd:%#x, %#x, %#x, %#x, %#x, %#x, %#x, %#x\n", count, inbuffer[1019], inbuffer[1020], inbuffer[1021], inbuffer[1022], 
+		//printf("%zd:%#x, %#x, %#x, %#x, %#x, %#x, %#x, %#x\n", count, inbuffer[1019], inbuffer[1020], inbuffer[1021], inbuffer[1022],
 		//	inbuffer[1023], inbuffer[1024], inbuffer[1025], inbuffer[1026]);
 	}
 	return 0;
@@ -159,9 +159,9 @@ void parsedata(void *buffer)
 	printf("\033[40;34mfn\033[0m: %d, ", data[4] << 8 | data[5]);
 	printf("\033[40;34mwait\033[0m: %d\n", data[6]);
 	//return;
-failed:	
+failed:
 	printf("data error:\n");
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < 1000; i++) {
 		printf("%#x,", data[i]);
 				if (i  == 8 ) {
 			printf("\n");

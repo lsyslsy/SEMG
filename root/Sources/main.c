@@ -24,14 +24,21 @@
 #include "../Headers/led.h"
 #include "../Headers/semg_debug.h"
 #include "../Drivers/USB/usb_semg.h"
+#include "../Headers/process.h"
+
+extern pthread_mutex_t mutex_send;
+extern pthread_cond_t cond_send;
+extern pthread_mutex_t mutex_tick;
+extern pthread_cond_t cond_tick;
 
 struct root root_dev;
 struct branch branches[BRANCH_NUM] = {{0}};//
 unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE] =
 {{0}}; // branch data pool
-extern pthread_mutex_t mutex_tick;
-extern pthread_cond_t cond_tick;
 
+
+
+unsigned int active_branch_count = 0;
 //init the root status
 int root_init(void)
 {
@@ -41,6 +48,10 @@ int root_init(void)
 
 	pthread_mutex_init(&mutex_tick, NULL);
 	pthread_cond_init(&cond_tick, NULL);
+
+	pthread_mutex_init(&mutex_send, NULL);
+	pthread_cond_init(&cond_send, NULL);
+
 	return 0;
 }//root_init()
 
@@ -49,7 +60,7 @@ int root_init(void)
  */
 void branch_init()
 {
-	int i, j, retval, err;
+	int i, retval, err;
 	int fd;
 	int n;
 	int current_fn = 22222;
@@ -96,24 +107,19 @@ void branch_init()
 
 		branches[n].is_connected = TRUE;
 		branches[n].devfd = fd;
+		active_branch_count++;
 		DebugInfo("binding semg-usb%d to branch %d\n", i, n);
 
 	}
 
-	j = 0;
-	// 再看下哪些设备是否都注册的
-	for (i = 0; i < BRANCH_NUM; i++) {
-		if (branches[i].is_connected == TRUE)
-			j++;
-	}
-	if (j > 0)
-		DebugInfo("total %d branches valid\n", j);
+	if (active_branch_count > 0)
+		DebugInfo("total %d branches valid\n", active_branch_count);
 	else {
 		DebugError("no branches valid\n");
 		exit(EXIT_FAILURE);
 	}
 
-	// 找到8个里面expected最大的那个,并加200ms,作为1次同步过程
+	// 找到8个里面expected最大的那个,并加500ms,作为1次同步过程
 
 	for (i = 0; i < BRANCH_NUM; i++) {
 		if (branches[i].is_connected == FALSE)
@@ -133,7 +139,7 @@ void branch_init()
 	}
 
 
-	current_fn = (current_fn+200)%1024; 		// delay 200 ms
+	current_fn = (current_fn+500)%1024; 		// delay 500 ms
 	// set all to sync
 	for (i = 0; i < BRANCH_NUM; i++) {
 		if (branches[i].is_connected == FALSE)
@@ -142,6 +148,7 @@ void branch_init()
 		retval = ioctl(branches[i].devfd, USB_SEMG_SET_EXPECTED_FRAME_NUMBER, current_fn);
 		if (retval < 0) {
 			branches[i].is_connected = FALSE;
+			active_branch_count--;
 			DebugError("branches%d ioctl: set expected_fn failed\n", i);
 			continue;
 		}
@@ -149,24 +156,19 @@ void branch_init()
 		retval = ioctl(branches[i].devfd, USB_SEMG_GET_EXPECTED_FRAME_NUMBER, NULL);
 		if (retval < 0) {
 			branches[i].is_connected = FALSE;
+			active_branch_count--;
 			DebugError("branches%d ioctl: get expected_fn failed\n", i);
 			continue;
 		} else if (retval != current_fn){
 			branches[i].is_connected = FALSE;
+			active_branch_count--;
 			DebugError("branches%d ioctl: get expected_fn not equals setted\n", i);
 			continue;
 		}
 	}
-	j = 0;
-	// 看下哪些设备还没注册的
-	for (i = 0; i < BRANCH_NUM; i++) {
-		if (branches[i].is_connected == FALSE)
-			DebugError("error: can't find branch %d\n", i);
-		else
-			j++;
-	}
-	if (j > 0)
-		DebugInfo("total %d branches valid\n", j);
+
+	if (active_branch_count > 0)
+		DebugInfo("total %d branches valid\n", active_branch_count);
 	else {
 		DebugError("no branches valid after ioctls\n");
 		exit(EXIT_FAILURE);
@@ -203,6 +205,11 @@ int main()
 
 	int ret;
 	int i;
+	struct sched_param param;
+	pthread_t p_socket;
+	pthread_t p_branch;
+	pthread_t p_process;
+	pthread_attr_t thread_attr;
 	printf("The program is compiled on %s\n" , __DATE__);
 	i = getuid();
 	if (i == 0)
@@ -211,6 +218,7 @@ int main()
 		DebugError("The current user is not root\n");
 		exit(EXIT_FAILURE);
 	}
+	printf("the main thread's pid is %lu\n",pthread_self());
 	ret = root_init();//linux device init
 	if (ret) {
 		DebugError("root_init error!\n");
@@ -221,17 +229,6 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 	branch_init(); //8 branch init
-	printf("the main thread's pid is %ld\n",pthread_self());
-	struct sched_param param;
-	pthread_t p_socket;
-	pthread_attr_t attr_socket;
-
-	pthread_t p_branch;
-	pthread_attr_t attr_branch;
-
-	pthread_t p_proc;
-	pthread_attr_t attr_proc;
-
 
 	//SCHED_FIFO适合于实时进程，它们对时间性要求比较强，而每次运行所需要的时间比较短。
 	//一旦这种进程被调度开始运行后，就要一直运行直到自愿让出CPU或者被优先权更高的进程抢占其执行权为止，没有时间片概念。
@@ -240,34 +237,39 @@ int main()
 	//进程剩余时间配额和进程的优先数nice（优先数越小，其优先级越高）。nice的取值范围是19~-20。
 	// 这个RR调度是针对相同优先级的，所以高优先级不释放，低优先级的线程还是无法执行，在这里结果和FIFO一样。
 
-
 	pthread_attr_init(&thread_attr);
 	pthread_attr_setschedpolicy(&thread_attr, SCHED_RR);
-	pthread_attr_setschedparam(&thread_attr, &param);
 	//必需设置inher的属性为 PTHREAD_EXPLICIT_SCHED，否则设置线程的优先级会被忽略
 	pthread_attr_setinheritsched(&thread_attr, PTHREAD_EXPLICIT_SCHED);
 
 	// branch thread
 	param.sched_priority = 20;
-	if( pthread_create(&p_branch, &thread_attr, (void *) FunBranch,
-			(void *) NULL))
-		DebugError("Create collect thread branch error\n");
-	DebugInfo("Create collect thread branch, tid:%ld\n", p_branch);
+	pthread_attr_setschedparam(&thread_attr, &param);
+	if( pthread_create(&p_branch, &thread_attr, (void *) FunBranch, NULL)) {
+		perror("Create collect thread branch error");
+		exit(EXIT_FAILURE);
+	}
+	DebugInfo("Create collect thread branch, tid:%lu\n", p_branch);
 	usleep(100000); // 100ms
 
-	// process thread
+	//process thread
 	param.sched_priority = 10;
-	if( pthread_create(&p_proces, &thread_attr, (void *) process,
-			(void *) NULL))
-		DebugError("Create process thread branch error\n");
-	DebugInfo("Create process thread branch, tid:%ld\n", p_process);
+	pthread_attr_setschedparam(&thread_attr, &param);
+	if( pthread_create(&p_process, &thread_attr, (void *) process, NULL)) {
+		perror("Create process thread branch error");
+		exit(EXIT_FAILURE);
+	}
+	DebugInfo("Create process thread branch, tid:%lu\n", p_process);
 	usleep(100000); // 100ms
 
 	// coummunication thread
 	param.sched_priority = 15;
-	if( pthread_create(&p_socket, &thread_attr, (void *) FunSocket, NULL))
-		DebugError("Create socket thread branch error\n");
-	DebugInfo("Create socket thread branch, tid:%ld\n", p_socket);
+	pthread_attr_setschedparam(&thread_attr, &param);
+	if( pthread_create(&p_socket, &thread_attr, (void *) FunSocket, NULL)) {
+		perror("Create socket thread branch error");
+		exit(EXIT_FAILURE);
+	}
+	DebugInfo("Create socket thread branch, tid:%lu\n", p_socket);
 
 	pthread_attr_destroy(&thread_attr);
 
@@ -276,11 +278,16 @@ int main()
 	init_sigaction(); // 设置信号处理函数
 	if (init_timer() < 0 ) // 定时器
 		exit(EXIT_FAILURE);
-#endif
+
 	//uninit
 	pthread_join(p_branch, NULL);
+	pthread_join(p_process, NULL);
 	pthread_join(p_socket, NULL);
-	pthread_mutex_destroy(&mutex_buff);
+	process_uninit();
+	pthread_mutex_destroy(&mutex_tick);
+	pthread_cond_destroy(&cond_tick);
+	pthread_mutex_destroy(&mutex_send);
+	pthread_cond_destroy(&cond_send);
     DebugInfo("the end");
 	return 0;
 }//main()

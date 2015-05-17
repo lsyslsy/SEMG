@@ -24,6 +24,7 @@
 #include "math.h"
 #include <errno.h>
 #include "../Headers/semg_debug.h"
+#include "../Headers/process.h"
 
 #define PI 3.1415926  //for simulate sin data
 
@@ -43,10 +44,7 @@ unsigned char spi_recv_buf[BRANCH_NUM][BRANCH_BUF_SIZE]={{0}};
 //!function forward declaration.
 
 static void BranchDataInit(unsigned char *recvbuf,int bn);
-//test thread
-void FunCollect()
-{
-}
+
 /**
  *FunBranch: The branch thread entry function
  *@parameter: branch num(0-7)
@@ -55,7 +53,7 @@ void FunBranch(void* parameter)
 {
 	struct branch *bx;
 	unsigned char *pbuf;
-	int ret, size;
+	int size;
 	int branch_num;
 	unsigned long tick = 0;//回绕是个问题, 用Jiffies是否更好
 	//TODO spi和数据处理的是否应该分开两个锁
@@ -69,10 +67,10 @@ void FunBranch(void* parameter)
 	// }
 	for (branch_num = 0; branch_num < BRANCH_NUM; branch_num++) {
 		BranchDataInit(spi_recv_buf[branch_num], branch_num);
-
+		pbuf = spi_recv_buf[branch_num];
+		bx = &branches[branch_num];
+		memcpy(bx->data_pool, pbuf, BRANCH_BUF_SIZE); // 格式化data_poll中的数据
 	}
-	pbuf = spi_recv_buf[branch_num];
-	memcpy(bx->data_pool, pbuf, BRANCH_BUF_SIZE); // 格式化data_poll中的数据
 
 	while (1) {
 		// wait for period interrupt
@@ -89,7 +87,7 @@ void FunBranch(void* parameter)
 			// DebugInfo("branch%d thread is running!%ld\n", branch_num, tick++);
 		for (branch_num = 0; branch_num < BRANCH_NUM; branch_num++) {
 			bx = &branches[branch_num];
-			if (bx.is_connected == FALSE)
+			if (bx->is_connected == FALSE)
 				continue;
 
 #ifndef MONI_DATA
@@ -97,9 +95,10 @@ void FunBranch(void* parameter)
 			if(size != 3258) { // any unresolved error
 				bx->data_pool[0] = 0x48;//spi you gui le
 				DebugError("read semg%d failed(ErrCode %d): %s\n", branch_num, errno, strerror(errno));
-				bx.is_connected = FALSE;
-				goto spi_error;
+				bx->is_connected = FALSE;
+				goto out;
 			}
+			DebugInfo("read branch%d 3258 bytes\n", branch_num);
 			queue_put(&semg_queue, 1, branch_num);
 #else
 			int period = 100;
@@ -111,25 +110,25 @@ void FunBranch(void* parameter)
 			pbuf += 9;
 			moni_data(pbuf, CHANNEL_NUM_OF_BRANCH , branch_num, &t, &period);
 #endif
-			spi_error:
 			// send message to processer
 			// 通过邮箱容量比如为2或3，来判断是否满确定处理是否来得及
+		out:
+			close(bx->devfd);
+			bx->devfd = -1;
 		}
 
 		// motion sensor process
 
 		//
 		pthread_mutex_lock(&mutex_tick);
-			// attention: 有可能在处理完成前又发生中断了，表明处理来不及处理时,这时会被hanlder设成0:start
-			if (capture_state == 1) // when proceesing
-				capture_state = 2; // mark finish
+		// attention: 有可能在处理完成前又发生中断了，表明处理来不及处理时,这时会被hanlder设成0:start
+		if (capture_state == 1) // when proceesing
+			capture_state = 2; // mark finish
 		pthread_mutex_unlock(&mutex_tick);
 
 	}
 
-out:
-	close(bx->devfd);
-	bx->devfd = -1;
+
 }//FunBranch()
 
 //!ddd
