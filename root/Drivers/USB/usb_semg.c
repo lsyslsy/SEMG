@@ -28,7 +28,7 @@
 #include <mach/gpio-bank-m.h>
 #endif
 //#define ASYNC_NOTIFY_SUPPORT
-//#define POLL_SUPPORT 
+//#define POLL_SUPPORT
 
 //TODO
 #define USB_SEMG_VENDOR_ID 		0x05AC
@@ -36,7 +36,7 @@
 
 #define SEMG_FRAME_SIZE 		3258
 #define ISOC_IN_BUFFER_SIZE 	4096		/* 页大小为4096，验证过 */
- 
+
 /* usb设备的次设备号起始 */
 #define USB_SEMG_MINOR_BASE 	199
 
@@ -86,7 +86,7 @@ struct usb_semg {
 };
 #define to_semg_dev(p) container_of(p, struct usb_semg, kref)
 
-static struct usb_driver semg_driver;//static类型的前向声明，长见识了吧。因为后面也有定义并初始化了	
+static struct usb_driver semg_driver;//static类型的前向声明，长见识了吧。因为后面也有定义并初始化了
 
 static void semg_delete(struct kref *kref) {
 	struct usb_semg *dev = to_semg_dev(kref);
@@ -114,7 +114,7 @@ static void semg_read_bulk_callback(struct urb *urb)
 	writel(tmp, S3C64XX_GPMDAT);
 #endif
 	spin_lock(&dev->err_lock);
-	
+
 /* sync/async unlink faults aren't errors */
 	if (urb->status) {
 		if (!(urb->status == -ENOENT ||
@@ -128,7 +128,7 @@ static void semg_read_bulk_callback(struct urb *urb)
 		//dev->isoc_in_filled = 0;
 		dev->bulk_in_filled = urb->actual_length;//TODO = or +=
 	}
-	
+
 	spin_unlock(&dev->err_lock);
 #ifdef ASYNC_NOTIFY_SUPPORT
 	if (dev->async_queue)
@@ -153,17 +153,17 @@ static void semg_read_isoc_callback(struct urb *urb)
 	//TODO
 	if (urb->error_count > 0) {
 		dev->errors = -1;
-		 dev_err(&dev->interface->dev, 
+		 dev_err(&dev->interface->dev,
 		 			"%s - failed transfer count %d\n",
                     __func__, urb->error_count);
 	} else {
 		dev->isoc_in_filled = 0;
 		for (i = 0; i < urb->number_of_packets; i++) {
-			// dev_info(&dev->interface->dev, " frame %i received size :%zd;status: %d\n", 
+			// dev_info(&dev->interface->dev, " frame %i received size :%zd;status: %d\n",
 			// 	i, urb->iso_frame_desc[i].actual_length, urb->iso_frame_desc[i].status);
 			dev->isoc_in_filled += urb->iso_frame_desc[i].actual_length;
 		}
-		
+
 	}
 
 	/*if (urb->status) {
@@ -177,7 +177,7 @@ static void semg_read_isoc_callback(struct urb *urb)
 	} else {
 		dev->iosc_in_filled = urb->actual_length;
 	}*/
-	
+
 	spin_unlock(&dev->err_lock);
 #ifdef ASYNC_NOTIFY_SUPPORT
 	if (dev->async_queue)
@@ -195,8 +195,8 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	struct urb  *urb = dev->bulk_in_urb;
 	unsigned int i;
 	int retval = 0;
-	unsigned int tmp;	
-	
+	unsigned int tmp;
+
 	//dev->isoc_in_buffer = usb_alloc_coherent(dev->udev, )
 
 	mutex_lock(&dev->io_mutex);
@@ -212,7 +212,7 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	// urb->interval = 1;///TODO:not sure//yes sure
 	// urb->context = dev;
 	// urb->complete = semg_read_isoc_callback;
-	// urb->transfer_buffer = dev->isoc_in_buffer;		 
+	// urb->transfer_buffer = dev->isoc_in_buffer;
 	// urb->transfer_dma = dev->isoc_in_buffer_dma;
 	// urb->number_of_packets = dev->isoc_in_npackets;
 	// //urb->start_frame = usb_get_current_frame_number(urb->dev) - 10;
@@ -223,7 +223,7 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	// 	urb->iso_frame_desc[i].offset = i * dev->isoc_in_packetsize;
 	// 	//expected length, 实际读到的大小是由设备决定的，
 	// 	//如果收到的数据长度>length，则会产生EOVERFLOW的错误;如果实际数据长度<length，则读到的acutal_length<length
-	// 	urb->iso_frame_desc[i].length = dev->isoc_in_packetsize; 	
+	// 	urb->iso_frame_desc[i].length = dev->isoc_in_packetsize;
 	// }
 	// urb->iso_frame_desc[i].offset = i * dev->isoc_in_packetsize;
 	// urb->iso_frame_desc[i].length = SEMG_FRAME_SIZE - i * dev->isoc_in_packetsize;
@@ -238,7 +238,7 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	/* submit urb */
 	retval = usb_submit_urb(urb, GFP_KERNEL);
 	if (retval < 0) {
-		 dev_err(&dev->interface->dev, 
+		 dev_err(&dev->interface->dev,
 		 			"%s - failed submitting read urb, error %d\n",
                     __func__, retval);
 		goto out;
@@ -265,15 +265,15 @@ static ssize_t semg_read(struct file *file, char __user *user_buf, size_t count,
 	}
 	spin_unlock(&dev->err_lock);
 
-	//TODO
-	if((dev->bulk_in_filled != SEMG_FRAME_SIZE) || (SEMG_FRAME_SIZE != count)) {
-		dev_err(&dev->interface->dev, "total received size :%zd\n", dev->bulk_in_filled);
-		retval = -EINVAL;
-		goto out;
-	}
+	//  只提供机制，不应该提供策略
+	// if((dev->bulk_in_filled != SEMG_FRAME_SIZE) || (SEMG_FRAME_SIZE != count)) {
+	// 	dev_err(&dev->interface->dev, "total received size :%zd\n", dev->bulk_in_filled);
+	// 	retval = -EINVAL;
+	// 	goto out;
+	// }
 
-	//if (count > dev->isoc_in_filled)
-	//	count = dev->isoc_in_filled;
+	if (count > dev->bulk_in_filled)
+		count = dev->bulk_in_filled;
 	if(copy_to_user(user_buf, dev->bulk_in_buffer, count)) {
 		retval = -EFAULT;
 		goto out;
@@ -344,7 +344,7 @@ static int semg_open(struct inode *inode, struct file *file) {
 	mutex_lock(&dev->io_mutex);
 //	iface->needs_remote_wakeup = 1;
 	//从网上查到
-	//Nowadays, the power manager for usb interfaces is transparent, so we shouldn't call 
+	//Nowadays, the power manager for usb interfaces is transparent, so we shouldn't call
 	//usb_autopm_get_interface to wakeup, neither usb_autopm_put_interface to suspend.
 	//so usb_autopm_get_interface return EACCESS(13)
 	// retval = usb_autopm_get_interface(interface);	/* 阻止usb设备autosuspended */
@@ -358,10 +358,10 @@ static int semg_open(struct inode *inode, struct file *file) {
 	file->private_data = dev;  //save dev for other functions use
 	mutex_unlock(&dev->io_mutex);
 	//if error
-	//usb_autopm_put_interface 
+	//usb_autopm_put_interface
 
 error:
-	 
+
 	return retval;
 }
 
@@ -408,7 +408,7 @@ static int get_branch_num(struct file *filep) {
 	struct usb_semg *dev = filep->private_data;
 	mutex_lock(&dev->io_mutex);
 	retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), 0x62, 0xC0, 0, 0, &n, sizeof(n), 20);
-	if (retval < 0) 
+	if (retval < 0)
 		dev_err(&dev->interface->dev, "%s - getbranchnum failed: %d",
 				    __func__, retval);
 	// dev_info(&dev->interface->dev, "%s - received %d bytes, value:%d",
@@ -423,7 +423,7 @@ static int set_delay(struct file *filep, __u16 ms) {
 	struct usb_semg *dev = filep->private_data;
 	mutex_lock(&dev->io_mutex);
 	retval = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0), 0x63, 0x40, ms, 0, 0, 0, 20);
-	if (retval < 0) 
+	if (retval < 0)
 		dev_err(&dev->interface->dev, "%s - set delay failed: %d",
 				    __func__, retval);
 	// dev_info(&dev->interface->dev, "%s - send %d bytes, value:%d",
@@ -439,11 +439,12 @@ static int get_expected_fn(struct file *filep) {
 	struct usb_semg *dev = filep->private_data;
 	mutex_lock(&dev->io_mutex);
 	retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), 0x65, 0xC0, 0, 0, &fn, sizeof(fn), 20);
-	if (retval < 0) 
+	if (retval < 0)
 		dev_err(&dev->interface->dev, "%s - get expected framenumber failed: %d",
 				    __func__, retval);
-	// dev_info(&dev->interface->dev, "%s - send %d bytes, value:%d",
-	// 			    __func__, retval, ms);
+	// else
+	// 	dev_info(&dev->interface->dev, "%s - get expected framenumber, value:%d",
+	// 			    __func__, fn);
 	mutex_unlock(&dev->io_mutex);
 	return retval < 0 ? retval: fn;
 }
@@ -453,24 +454,25 @@ static int set_expected_fn(struct file *filep, __u16 framenumber) {
 	struct usb_semg *dev = filep->private_data;
 	mutex_lock(&dev->io_mutex);
 	retval = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0), 0x64, 0x40, framenumber, 0, 0, 0, 20);
-	if (retval < 0) 
+	if (retval < 0)
 		dev_err(&dev->interface->dev, "%s - set expected framenumber failed: %d",
 				    __func__, retval);
-	// dev_info(&dev->interface->dev, "%s - send %d bytes, value:%d",
-	// 			    __func__, retval, ms);
+	// else
+	// 	dev_info(&dev->interface->dev, "%s -set expected framenumber, value:%d",
+	//			    __func__, framenumber);
 	mutex_unlock(&dev->io_mutex);
 	return retval < 0 ? retval: 0;
 }
 
 // get init state
-// 100 200 300 400 
+// 100 200 300 400
 static int get_init_state(struct file *filep) {
 	int retval = 0;
 	__u16 state = 0; // frame number
 	struct usb_semg *dev = filep->private_data;
 	mutex_lock(&dev->io_mutex);
 	retval = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0), 0x66, 0xC0, 0, 0, &state, sizeof(state), 20);
-	if (retval < 0) 
+	if (retval < 0)
 		dev_err(&dev->interface->dev, "%s - get init state failed: %d",
 				    __func__, retval);
 	// dev_info(&dev->interface->dev, "%s - send %d bytes, value:%d",
@@ -503,7 +505,7 @@ long semg_ioctl(struct file * filep, unsigned int cmd, unsigned long arg)
 			else
 				return set_delay(filep, (__u16)arg);
 		case USB_SEMG_SET_SAMPLEPERIOD:
-			break;	
+			break;
 		case USB_SEMG_GET_CURRENT_FRAME_NUMBER:
 			return usb_get_current_frame_number(dev->udev) & 0x03ff;
 		case USB_SEMG_GET_EXPECTED_FRAME_NUMBER:
@@ -528,7 +530,7 @@ static const struct file_operations semg_fops = {
 	.owner =	THIS_MODULE,
 	.read = 	semg_read,
 	.write = 	semg_write,
-	.open = 	semg_open,	
+	.open = 	semg_open,
 	.flush = 	semg_flush,
 	.unlocked_ioctl = semg_ioctl,
 #ifdef POLL_SUPPORT
@@ -548,7 +550,7 @@ static struct usb_class_driver semg_class = {
 };
 
 //TODO:
-static int semg_probe(struct usb_interface *interface, 
+static int semg_probe(struct usb_interface *interface,
 				const struct usb_device_id *id) {
 	struct usb_semg *dev;
 	struct usb_host_interface *iface_desc;
@@ -570,9 +572,9 @@ static int semg_probe(struct usb_interface *interface,
 	mutex_init(&dev->io_mutex);
 	init_completion(&dev->isoc_in_completion);
 	init_completion(&dev->bulk_in_completion);
-	atomic_set(&dev->open_cnt, 1);			/* only can be opened once */ 
+	atomic_set(&dev->open_cnt, 1);			/* only can be opened once */
 	kref_init(&dev->kref);
-	spin_lock_init(&dev->err_lock); 		
+	spin_lock_init(&dev->err_lock);
 
 	iface_desc = interface->cur_altsetting;
 	for (i = 0; i < iface_desc->desc.bNumEndpoints; i++) {
@@ -610,7 +612,7 @@ static int semg_probe(struct usb_interface *interface,
 			dev->bulk_in_size = dev->bulk_in_packetsize * dev->bulk_in_npackets;
 			/* 分配dma缓冲区，获得dma地址和cpu空间的地址 */
 			dev->bulk_in_buffer =usb_alloc_coherent(dev->udev, dev->bulk_in_size,
-					GFP_KERNEL, &dev->bulk_in_buffer_dma);//kmalloc(dev->bulk_in_size, GFP_KERNEL);// 
+					GFP_KERNEL, &dev->bulk_in_buffer_dma);//kmalloc(dev->bulk_in_size, GFP_KERNEL);//
 			if (!dev->bulk_in_buffer) {
 				dev_err(&interface->dev, "Cannot allocate bulk_in_buffer");
 				goto error;
@@ -651,7 +653,7 @@ static int semg_probe(struct usb_interface *interface,
 		 "USB SEMG device now attached to USBsemg-%d",
 		 interface->minor);
 	return 0;
-	
+
 error:
 	if (dev)
 		/* this frees allocated memory */

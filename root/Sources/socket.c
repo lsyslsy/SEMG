@@ -91,8 +91,9 @@ void FunSocket()
 		while (1)
 		{
 		 	pthread_mutex_lock(&mutex_send);
-	 		send_ready = 1;
-	 		pthread_cond_signal(&cond_send);
+	 		while (send_ready != 1)
+	 			pthread_cond_wait(&cond_send, &mutex_send);
+	 		send_ready = 0;
 	 		pthread_mutex_unlock(&mutex_send);
 			//DebugInfo("socket thread is running!%ld\n", tick++);
 			// TODO: check sync 8 branches

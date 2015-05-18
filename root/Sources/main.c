@@ -119,7 +119,7 @@ void branch_init()
 		exit(EXIT_FAILURE);
 	}
 
-	// 找到8个里面expected最大的那个,并加500ms,作为1次同步过程
+	// 找到8个里面current最大的那个,并加500ms,作为1次同步过程
 
 	for (i = 0; i < BRANCH_NUM; i++) {
 		if (branches[i].is_connected == FALSE)
@@ -162,9 +162,11 @@ void branch_init()
 		} else if (retval != current_fn){
 			branches[i].is_connected = FALSE;
 			active_branch_count--;
-			DebugError("branches%d ioctl: get expected_fn not equals setted\n", i);
+			DebugError("branches%d ioctl: get expected_fn not equals setted, set: %d, get: %d\n", i, current_fn, retval);
 			continue;
 		}
+			DebugInfo("branches%d ioctl: get expected_fn not equals setted, set: %d, get: %d\n", i, current_fn, retval);
+
 	}
 
 	if (active_branch_count > 0)

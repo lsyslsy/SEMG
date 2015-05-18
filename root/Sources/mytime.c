@@ -56,18 +56,18 @@ int sync()
     for (i = 0; i < BRANCH_NUM; i++) {
         if (branches[i].is_connected == FALSE)
             continue;
-
+         //要看驱动，好像返回类型有问题
         retval = ioctl(branches[i].devfd, USB_SEMG_GET_EXPECTED_FRAME_NUMBER, NULL);
         if (retval < 0) {
             branches[i].is_connected = FALSE;
-            DebugError("branches%d ioctl: get expected_fn failed in %s\n", i, __func__);
+            DebugError("branches%d ioctl: get expected_fn failed in %s, retval: %d\n", i, __func__, retval);
             exit(1);
         } else {
             expected_fn = retval;
             retval = ioctl(branches[i].devfd, USB_SEMG_GET_CURRENT_FRAME_NUMBER, NULL);
             if (retval < 0) {
                 branches[i].is_connected = FALSE;
-                DebugError("branches%d ioctl: get current_fn failed in %s\n", i, __func__);
+                DebugError("branches%d ioctl: get current_fn failed in %s, retval: %d\n", i, __func__, retval);
                 exit(1);
             } else {
                 current_fn = retval;
@@ -90,7 +90,7 @@ int sync()
         DebugError("not enough time to process, skip this turn\n");
         retval = -2;
     }
-    printf("expected_fn:%d, current_fn:%d,expire: %ldms\n", expected_fn, current_fn, expire/1000000);
+    printf("expected_fn:%4d, current_fn:%4d,expire: %3dms\n", expected_fn, current_fn, expire/1000000);
     if (timer_settime (timerid, 0, &its, NULL) == -1) {
         perror("timer_settime2 error");
         retval = -1;

@@ -1,15 +1,15 @@
 # Comment/uncomment the following line to disable/enable debugging
 # DEBUG = y
-ARM=yy
+ARM=y
 
 # Add your debugging flag (or not) to CFLAGS
 # ifeq ($(DEBUG),y)
-#   DEBFLAGS = -O -g 
+#   DEBFLAGS = -O -g
 # else
 #   DEBFLAGS = -O2
 # endif
 
-obj-m := usb_semg.o 
+obj-m := usb_semg.o
 
 ifeq ($(ARM), y)
 	CROSS_COMPILE=arm-linux-

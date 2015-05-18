@@ -49,7 +49,7 @@ int main(int argc, char const *argv[])
  //        return -4;
  //    }
 
-	sprintf(strbuf, "/dev/semg-usb%d", 1);
+	sprintf(strbuf, "/dev/semg-usb%d", 0);
 	fd0 = open(strbuf, O_RDONLY);
 	if (fd0 < 0) {
 		perror("open usb0 error");
@@ -161,8 +161,8 @@ void parsedata(void *buffer)
 	//return;
 failed:
 	printf("data error:\n");
-	for (i = 0; i < 1000; i++) {
-		printf("%#x,", data[i]);
+	for (i = 0; i < 100; i++) {
+		printf("[%d]:%#x,", i, data[i]);
 				if (i  == 8 ) {
 			printf("\n");
 		}

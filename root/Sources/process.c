@@ -126,6 +126,7 @@ void  process(void *parameter)
 static int ParseDataPacket(unsigned char *p, int n)
 {
 	int i, j;
+	int k;
 	int count = 0;
 	if (p[0] != 0xb7)
 		count++;
@@ -135,13 +136,12 @@ static int ParseDataPacket(unsigned char *p, int n)
 		count++;
 	if (p[3] != (unsigned char) BRANCH_DATA_SIZE)
 		count++;
-	printf("count %d\n", count);
-	p += ;
+	p += 9;
+
 	for (i = 0; i < CHANNEL_NUM_OF_BRANCH; i++)
 	{
 		if (*p != 0x11)
 			count++;
-		printf("%d != %d\n", *p, 0x11);
 		p++;
 		if (*p != i + n * CHANNEL_NUM_OF_BRANCH)
 			count++;
