@@ -5,17 +5,20 @@
 ---
 ## 1. 引言
 **Notes**
-  - 协议中采用小端模式
+  - 协议中采用大端模式
   - 表格中的字段默认是1个字节
 
 | 时间        |版本   |  内容  | 作者|
 | :--------:   | :-----:  | :----:  | :-----: |
 | 2014-6-xx    | 1.0     |         | 林上耀 |
-| 2015-5-14  | 2.0      |        | 林上耀 |
+| 2015-5-14    | 2.0     |         | 林上耀 |
 
 ## 2. 协议过程
 ### 2.1 MCU（Branch)和Linux(root)通信协议
-#### 2.1.1 Channel数据包
+采用USB通信
+
+#### 2.1.1 数据包格式
+#### 2.1.1.1 Channel数据包
 Channel通道数据包(203Byte)
 
 | 0x11        |Channel_num   |  State  | Data|
@@ -30,29 +33,54 @@ Channel通道数据包(203Byte)
 | DataH  | DataL | ... | DataH | DataL|
 | :-----: | :-----: | :----: | :-----: |:-----: |
 
-####2.1.2 握手过程
-Branch同root握手包
-*Branch握手应答包*
+#### 2.1.1.2 Sensor数据包
 
-| 0xB6 | Branch_Num | State |
-|------|-----|------|
+原始采样点数据共18Byte
 
-- 0xB6: 握手应答包头
-- Branch_Num: Branch编号,0-7
-- State: 状态标志,保留
-root->branch
-*root握手请求包*
+| MAG | | ||||GYRO |||||| ACC ||||||
+| ---|--- |--- |--- |--- |--- |--- |--- |--- |--- |--- |--- |--- |--- |--- |--- |--- |---|
+| xh | xl | yh | yl | zh | zl | xh | xl | yh | yl | zh | zl | xh | xl | yh | yl | zh | zl |
 
-| 0xA5 | Branch_Num |  Cmd  |
-| --- | -------     |-----  |
+采样频率为50HZ，100ms总共采样5次
+sensor节点数据包格式, 92 Byte
 
-- 0xB6: 握手应答包头
-- Branch_Num: Branch编号,0-7
-- State: 状态标志,保留
+| 0x12  | branch_num | Data |
+| ----- | ---------- | ---- |
+
+- Data: 5 * 18 Byte = 90 Byte
+
+####2.1.2 控制命令
+
+* GetBranchNum
+    返回当前的接口
+
+    |bmRequestType | bRequest | wValue | wIndex | wLength | 数据阶段|
+    |-------------|----------|--------|--------|---------|--------|
+    | 11000000b | 62H | 0 | 0 | 1 | branch number |
+
+* SetDelay
+设置采样延时, `Expected Frame +=  wValue`, **注意mValue的大小端问题, 帧号的回绕问题**,
+
+|bmRequestType | bRequest | wValue | wIndex | wLength | 数据阶段|
+|-------------|----------|--------|--------|---------|--------|
+| 01000000b | 63H | 延时帧数 | delayms | 2 |  - |
+
+* GetInitState
+设置系统初始化状态
+
+|bmRequestType | bRequest | wValue | wIndex | wLength | 数据阶段|
+|-------------|----------|--------|--------|---------|--------|
+| 11000000b | 66H | 0 | 0 | 2 | state |
+
+state:
+* 100: not inited, 初始化没结束
+* 200: OK, 初始化结束且完全成功错误
+* 401: AD1 not ready
+* 402: AD2 not ready
 
 #### 2.1.3 数据通信
 Branch和root数据通信过程
-*Branch->root(共3258 `Bytes)*
+*Branch->root(共3258 Bytes)*
 
 | 0xB7 | Branch_Num | DataLenH | DataLenL | FrameNumberH | FrameNumberL | WaitTime | stateH | stateL| Data | 0xED |
 | ---  |------      |------|---|-----------|-------------|----------------|------- |--------|-------|-----|  -----|
@@ -113,22 +141,31 @@ root->PC
 |---|
 
 * 'D': 数据请求包头
-*root数据应答包*
 
-| d'   | LenH | LenL | TimestampH | TimestampL | Data | 0xED |
-|---   | ----| ------|------------|-------------|-----|------|
+#####*root数据应答包*
+
+| d'   | LenH | LenL | TimestampH | TimestampL | StateH | StateL | SEMG_DATA | SENSOR_DATA |   0xED |
+|---   | ----| ------|------------|-------------|-------|--------| ---------| -------------|   -----|
 
 - 'd': 数据应答头
 - LenH: 本帧字节长度高8位
 - LenL: 本帧字节长度低8位
 - TimestampH: 时间戳高8位
 - TimestampL: 时间戳低8位
-- Data: 数据包正文
+- StateH: 状态高字节
+- StateL: 状态低字节
+- SEMG_DATA: SEMG数据
             共n(128)个通道，每个通道数据包的格式
-**参照**
+    **参照**2.2.1.1
 
-|通道0 数据包|通道1 数据包|...|通道n-1 数据包|
-|----------| ------ | -----| ------------|
+    |通道0 数据包|通道1 数据包|....|通道n-1 数据包|
+    |----------| ----------|----| -----------|
+
+- SENSOR_DATA: 运动传感数据
+    共n(4)个传感数据通道，每个sensor数据格式**参照**2.2.1.2
+
+    | 1号节点数据 | 2号节点数据 | 3号节点数据 | 4号节点数据 |
+    | ---------- | --------- | ---------  | --------- |
 
 #### 2.2.3 控制包(Control)
 
@@ -136,7 +173,7 @@ root->PC
 *PC控制请求包*
 
 | 'C'(0x43) | CMD | Data | CheckCode |0xED |
-| ---- | ---------| ---- | ----------|-----|
+| --------- | ----| ---- | ----------|-----|
 
 - 'd': 数据应答
 - LenH: 本帧字节长度高8位

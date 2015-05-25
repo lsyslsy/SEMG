@@ -90,7 +90,7 @@ int sync()
         DebugError("not enough time to process, skip this turn\n");
         retval = -2;
     }
-    printf("expected_fn:%4d, current_fn:%4d,expire: %3dms\n", expected_fn, current_fn, expire/1000000);
+    printf("expected_fn:%4d, current_fn:%4d,expire: %3ldms\n", expected_fn, current_fn, expire/1000000);
     if (timer_settime (timerid, 0, &its, NULL) == -1) {
         perror("timer_settime2 error");
         retval = -1;

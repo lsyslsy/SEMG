@@ -18,13 +18,17 @@
 #include "../Headers/socket.h"
 #include "../Headers/process.h"
 
-extern unsigned char spi_recv_buf[BRANCH_NUM][BRANCH_BUF_SIZE];
+extern unsigned char semg_recv_buf[SEMG_NUM][SEMG_FRAME_SIZE];
+extern unsigned char sensor_recv_buf[SENSOR_NUM][SENSOR_FRAME_SIZE];
+extern unsigned char semg_pool[SEMG_NUM][SEMG_FRAME_SIZE];
+extern unsigned char sensor_pool[SENSOR_NUM][SENSOR_FRAME_SIZE];
 extern unsigned char sendbuff[MAX_TURN_BYTE];
 extern unsigned int send_ready; // 0: not ready, 1: ready
 extern pthread_mutex_t mutex_send;
 extern pthread_cond_t cond_send;
 
-static int ParseDataPacket(unsigned char *p, int n);
+static int ParseSemgDataPacket(unsigned char *p, int n);
+static int ParseSensorDataPacket(unsigned char *p, int n);
 static void print_data(unsigned char * pbuf, int branch_num);
 struct work_queue semg_queue;
 /**
@@ -54,31 +58,31 @@ void  process(void *parameter)
 	unsigned char *pbuf;
 	while (1) {
 
-		// SEMG data process
-	for (i= 0; i< BRANCH_NUM; i++) {
+	// SEMG data process
+	for (i= 0; i< SEMG_NUM; i++) {
 		if (branches[i].is_connected == FALSE)
 			continue;
 	 	job = queue_get(&semg_queue);
 	 	branch_num = job->branch_num;
  		if (job->type != 1 || branch_num != i) {
- 			DebugError("fatal error occur, branch turn not as expected\n");
+ 			DebugError("fatal error occur, semg branch turn not as expected\n");
  			exit(1);
  		}
- 		pbuf = spi_recv_buf[branch_num];
+ 		pbuf = semg_recv_buf[branch_num];
 		bx = &branches[branch_num];
 
  		// data parse
- 		int tmp = ParseDataPacket(pbuf, branch_num);
+ 		int tmp = ParseSemgDataPacket(pbuf, branch_num);
 		if (tmp == 0) {
 			print_data(pbuf, branch_num);
 			//Data verified, then copy to socket
-			memcpy(bx->data_pool, pbuf, BRANCH_BUF_SIZE);
+			memcpy(bx->data_pool, pbuf, SEMG_FRAME_SIZE);
 		} else {
 			/***********************tmp*****************/
 			bx->data_pool[0] = 0xee; //data error
 			DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
 					branch_num, tmp);
-			printf("read:%d,%x,%x,%x,%x,%x\n", 3258, pbuf[0], pbuf[1], pbuf[2],
+			DebugWarn("read:%d,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
 					pbuf[3], pbuf[3256]);
 		}
 
@@ -87,16 +91,51 @@ void  process(void *parameter)
 		// data compress
 
 		// data pack
-		if(data_pool[branch_num][0] == 0x48)
+		// NOTE: 边打包边发送会有竞争问题,不过经过分析后，情况出现概率小，只有当网速特别慢时
+		if(semg_pool[branch_num][0] == 0x48)
 			sendbuff[0] = 0x48;
-		if(data_pool[branch_num][0] == 0xee)
+		if(semg_pool[branch_num][0] == 0xee)
 			sendbuff[1] = pbuf[1] | 0x01 << branch_num;
 
 		///##数据包出错改怎么处理##////
-		memcpy(sendbuff + 7 +branch_num * BRANCH_DATA_SIZE,
-			&data_pool[branch_num][BRANCH_Header_SIZE], BRANCH_DATA_SIZE);
+		memcpy(sendbuff + 7 +branch_num * SEMG_DATA_SIZE,
+			&semg_pool[branch_num][SEMG_HEADER_SIZE], SEMG_DATA_SIZE);
  	}
 
+ 	// motion sensor data
+	for (i = SEMG_NUM; i< BRANCH_NUM; i++) {
+		if (branches[i].is_connected == FALSE)
+			continue;
+	 	job = queue_get(&semg_queue);
+	 	branch_num = job->branch_num;
+ 		if (job->type != 2 || branch_num != i) {
+ 			DebugError("fatal error occur, sensor branch turn not as expected\n");
+ 			exit(1);
+ 		}
+ 		pbuf = sensor_recv_buf[branch_num - SEMG_NUM];
+		bx = &branches[branch_num];
+
+ 		// data parse
+ 		int tmp = ParseSensorDataPacket(pbuf, branch_num);
+		if (tmp == 0) {
+
+		} else {
+			DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
+					branch_num, tmp);
+			DebugWarn("read:%d,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
+					pbuf[3], pbuf[4]);
+		}
+
+		// data pack
+		// if(data_pool[branch_num][0] == 0x48)
+		// 	sendbuff[0] = 0x48;
+		// if(data_pool[branch_num][0] == 0xee)
+		// 	sendbuff[1] = pbuf[1] | 0x01 << branch_num;
+
+		///##数据包出错改怎么处理##////
+		memcpy(sendbuff + 7 + SEMG_NUM * SEMG_DATA_SIZE + (branch_num - SEMG_NUM) * SENSOR_DATA_SIZE,
+			&sensor_pool[branch_num - SEMG_NUM][SENSOR_HEADER_SIZE], SENSOR_DATA_SIZE);
+ 	}
  	//else if (job->type == 2) {
 
  	// } else {
@@ -106,10 +145,10 @@ void  process(void *parameter)
  	// start to send data
  	// NOTE: 可能有竞争，打包和发送
  	// 发送消息给socket线程，
- // 	pthread_mutex_lock(&mutex_send);
-	// send_ready = 1;
-	// pthread_cond_signal(&cond_send);
- // 	pthread_mutex_unlock(&mutex_send);
+ 	pthread_mutex_lock(&mutex_send);
+	send_ready = 1;
+	pthread_cond_signal(&cond_send);
+ 	pthread_mutex_unlock(&mutex_send);
 
  	// motion sensor process
  }
@@ -117,33 +156,30 @@ void  process(void *parameter)
 }
 
  /**
- * Parse the data packet from branch.
+ * Parse the data packet of branch.
  * 验证数据包格式是否正确.
  * @param p 传入数据包地址指针.
  * @param n 通道编号.
  * @return 帧格式中错误的字节数
  */
-static int ParseDataPacket(unsigned char *p, int n)
+static int ParseSemgDataPacket(unsigned char *p, int n)
 {
 	int i, j;
-	int k;
 	int count = 0;
 	if (p[0] != 0xb7)
 		count++;
 	if (p[1] != n)
 		count++;
-	if (p[2] != (BRANCH_DATA_SIZE >> 8))
+	if (p[2] != (SEMG_DATA_SIZE >> 8))
 		count++;
-	if (p[3] != (unsigned char) BRANCH_DATA_SIZE)
+	if (p[3] != (unsigned char) SEMG_DATA_SIZE)
 		count++;
 	p += 9;
-
-	for (i = 0; i < CHANNEL_NUM_OF_BRANCH; i++)
-	{
+	for (i = 0; i < CHANNEL_NUM_OF_SEMG; i++) {
 		if (*p != 0x11)
 			count++;
 		p++;
-		if (*p != i + n * CHANNEL_NUM_OF_BRANCH)
+		if (*p != i + n * CHANNEL_NUM_OF_SEMG)
 			count++;
 		p++;
 		p++;//skip the state
@@ -158,6 +194,30 @@ static int ParseDataPacket(unsigned char *p, int n)
 	return count;
 }
 
+ /**
+ * Parse the data packet of sensor.
+ * 验证数据包格式是否正确.
+ * @param p 传入数据包地址指针.
+ * @param n 通道编号.
+ * @return 帧格式中错误的字节数
+ */
+static int ParseSensorDataPacket(unsigned char *p, int n)
+{
+	int count = 0;
+	if (p[0] != 0xb8)
+		count++;
+	if (p[1] != n)
+		count++;
+	if (p[2] != (SENSOR_DATA_SIZE >> 8))
+		count++;
+	if (p[3] != (unsigned char) SENSOR_DATA_SIZE)
+		count++;
+	p += 9;
+	p += SENSOR_DATA_SIZE;
+	if (*p != 0xED)
+		count++;
+	return count;
+}
 
 static void print_data(unsigned char * pbuf, int branch_num)
 {

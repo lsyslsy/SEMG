@@ -139,7 +139,6 @@ out1:
  **/
 int send_task(int connsock, char cmd)
 {
-	unsigned char *pbuf;
 	int ret = -1;
 	switch (cmd)
 	{
@@ -158,7 +157,7 @@ int send_task(int connsock, char cmd)
 		sendbuff[4] = TimeStamp & 0x00FF;
 		sendbuff[5] = 0; // state High
 		sendbuff[6] = 0; // state Low
-		send_size = 25992;
+		send_size = 26360;
 		sendbuff[1] = (send_size >> 8) & 0x00FF;
 		sendbuff[2] = send_size & 0x00FF;
 		sendbuff[send_size -1 ] = DATA_END;
@@ -178,30 +177,30 @@ int send_task(int connsock, char cmd)
  *@param pbuf: the macro package buffer point
  *@param psize: the macro package length buffer point
  **/
-void data_packet(unsigned char *pbuf, unsigned int *psize)
-{
-	int i;
-	unsigned char * p = pbuf+2;
-	for (i = 0; i < BRANCH_NUM; i++) //TODO 包长可调
-	{
-		if(data_pool[i][0] == 0x48)
-			pbuf[0] = 0x48;
-		if(data_pool[i][0] == 0xee)
-			pbuf[1] = pbuf[1] | 0x01 << i;
-		//temp_size = (data_pool[i][2] << 8) + data_pool[i][3];//每个Branch的长度
-		//if (temp_size == BRANCH_DATA_SIZE)//不应该在这里验证
-		//{
-			///##数据包出错改怎么处理##////
-			memcpy(p, &data_pool[i][BRANCH_Header_SIZE], BRANCH_DATA_SIZE);
+// void data_packet(unsigned char *pbuf, unsigned int *psize)
+// {
+// 	int i;
+// 	unsigned char * p = pbuf+2;
+// 	for (i = 0; i < BRANCH_NUM; i++) //TODO 包长可调
+// 	{
+// 		if(semg_pool[i][0] == 0x48)
+// 			pbuf[0] = 0x48;
+// 		if(semg_pool[i][0] == 0xee)
+// 			pbuf[1] = pbuf[1] | 0x01 << i;
+// 		//temp_size = (data_pool[i][2] << 8) + data_pool[i][3];//每个Branch的长度
+// 		//if (temp_size == BRANCH_DATA_SIZE)//不应该在这里验证
+// 		//{
+// 			///##数据包出错改怎么处理##////
+// 			memcpy(p, &semg_pool[i][BRANCH_HEADER_SIZE], SEMG_DATA_SIZE);
 
-		//}
-		*psize += BRANCH_DATA_SIZE;//搞毛
-		p += BRANCH_DATA_SIZE;//不管成不成功都要加上去
-	}
-	*p = DATA_END;
-	*psize += 1;
-	DebugInfo("actual send size:%d\n", *psize);
-}//data_packet()
+// 		//}
+// 		*psize += SEMG_DATA_SIZE;//搞毛
+// 		p += SEMG_DATA_SIZE;//不管成不成功都要加上去
+// 	}
+// 	*p = DATA_END;
+// 	*psize += 1;
+// 	DebugInfo("actual send size:%d\n", *psize);
+// }//data_packet()
 
 void print_socket_info(int connsock)
 {

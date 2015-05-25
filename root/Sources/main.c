@@ -32,10 +32,9 @@ extern pthread_mutex_t mutex_tick;
 extern pthread_cond_t cond_tick;
 
 struct root root_dev;
-struct branch branches[BRANCH_NUM] = {{0}};//
-unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE] =
-{{0}}; // branch data pool
-
+struct branch branches[BRANCH_NUM] = {{0}}; //
+unsigned char semg_pool[SEMG_NUM][SEMG_FRAME_SIZE] = {{0}}; // semg data pool
+unsigned char sensor_pool[SENSOR_NUM][SENSOR_FRAME_SIZE] = {{0}};
 
 
 unsigned int active_branch_count = 0;
@@ -69,8 +68,16 @@ void branch_init()
 
 	for (i = 0; i < BRANCH_NUM; i++) {
 		branches[i].num = i;
+		if (i < SEMG_NUM) {
+			branches[i].type = 1;
+			branches[i].data_pool = semg_pool[i];
+			branches[i].size = SEMG_FRAME_SIZE;
+		} else {
+			branches[i].type = 2;
+			branches[i].data_pool = sensor_pool[i - SEMG_NUM];
+			branches[i].size = SENSOR_FRAME_SIZE;
+		}
 		branches[i].devfd = -1;
-		branches[i].data_pool = data_pool[0];
 		branches[i].has_shakehanded = FALSE;
 		branches[i].is_connected = FALSE;
 		branches[i].need_shakehand = TRUE;
@@ -78,6 +85,7 @@ void branch_init()
 		branches[i].expected_fn = 11111;
 		branches[i].waitms = 0;
 	}
+
 
 	for (i = 0; i < 30; i++) {
 		sprintf(strbuf, "/dev/semg-usb%d", i);

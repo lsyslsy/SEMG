@@ -30,20 +30,24 @@
 
 extern struct root root_dev;
 extern struct branch branches[BRANCH_NUM];
-extern unsigned char data_pool[BRANCH_NUM][BRANCH_BUF_SIZE];
+extern unsigned char semg_pool[SEMG_NUM][SEMG_FRAME_SIZE];
+extern unsigned char sensor_pool[SENSOR_NUM][SENSOR_FRAME_SIZE];
+
 
 extern pthread_mutex_t mutex_tick;
 extern pthread_cond_t cond_tick;
 extern int capture_state; // 0:start, 1:processing, 2:finish
 extern struct work_queue semg_queue;
 
-unsigned char spi_recv_buf[BRANCH_NUM][BRANCH_BUF_SIZE]={{0}};
+unsigned char semg_recv_buf[SEMG_NUM][SEMG_FRAME_SIZE]={{0}};
+unsigned char sensor_recv_buf[SENSOR_NUM][SENSOR_FRAME_SIZE]={{0}};
 
 
 
 //!function forward declaration.
 
-static void BranchDataInit(unsigned char *recvbuf,int bn);
+static void SemgDataInit(unsigned char *recvbuf,int bn);
+static void SensorDataInit(unsigned char *recvbuf, int bn);
 
 /**
  *FunBranch: The branch thread entry function
@@ -66,10 +70,16 @@ void FunBranch(void* parameter)
 	// 	pthread_exit(NULL);
 	// }
 	for (branch_num = 0; branch_num < BRANCH_NUM; branch_num++) {
-		BranchDataInit(spi_recv_buf[branch_num], branch_num);
-		pbuf = spi_recv_buf[branch_num];
+		if (branch_num < SEMG_NUM) {
+			SemgDataInit(semg_recv_buf[branch_num], branch_num);
+			pbuf = semg_recv_buf[branch_num];
+		}
+		else {
+			SensorDataInit(sensor_recv_buf[branch_num - SEMG_NUM], branch_num);
+			pbuf = sensor_recv_buf[branch_num -  SEMG_NUM];
+		}
 		bx = &branches[branch_num];
-		memcpy(bx->data_pool, pbuf, BRANCH_BUF_SIZE); // 格式化data_poll中的数据
+		memcpy(bx->data_pool, pbuf, bx->size); // 格式化data_poll中的数据
 	}
 
 	while (1) {
@@ -87,13 +97,17 @@ void FunBranch(void* parameter)
 			// DebugInfo("branch%d thread is running!%ld\n", branch_num, tick++);
 		for (branch_num = 0; branch_num < BRANCH_NUM; branch_num++) {
 			bx = &branches[branch_num];
-			pbuf = spi_recv_buf[branch_num];
 			if (bx->is_connected == FALSE)
 				continue;
 
+			if (branch_num < SEMG_NUM)
+				pbuf = semg_recv_buf[branch_num];
+			else
+				pbuf = sensor_recv_buf[branch_num - SEMG_NUM];
+
 #ifndef MONI_DATA
-			size = read(bx->devfd, pbuf, 3258);
-			if(size != 3258) { // any unresolved error
+			size = read(bx->devfd, pbuf, bx->size);
+			if(size != bx->size) { // any unresolved error
 				bx->data_pool[0] = 0x48;//spi you gui le
 				DebugError("read semg%d failed(ErrCode %d): %s\n", branch_num, errno, strerror(errno));
 				bx->is_connected = FALSE;
@@ -102,7 +116,7 @@ void FunBranch(void* parameter)
 				continue;
 			}
 			// DebugInfo("read branch%d 3258 bytes\n", branch_num);
-			queue_put(&semg_queue, 1, branch_num);
+			queue_put(&semg_queue, bx->type, branch_num);
 #else
 			int period = 100;
 			pbuf = bx->data_pool;
@@ -132,20 +146,20 @@ void FunBranch(void* parameter)
 }//FunBranch()
 
 //!ddd
-static void BranchDataInit(unsigned char *recvbuf,int bn)
+static void SemgDataInit(unsigned char *recvbuf,int bn)
 {
 	int i, j;
 	unsigned char *p = recvbuf;
 	p[0] = 0xb7;
 	p[1] = (char)bn;
-	p[2] = BRANCH_DATA_SIZE>>8;
-	p[3] = (unsigned char)BRANCH_DATA_SIZE ;
+	p[2] = SEMG_DATA_SIZE>>8;
+	p[3] = (unsigned char)SEMG_DATA_SIZE ;
 	p += 9;
-	for (i = 0; i < CHANNEL_NUM_OF_BRANCH; i++)
+	for (i = 0; i < CHANNEL_NUM_OF_SEMG; i++)
 	{
 		*p = 0x11;
 		p++;
-		*p = i + bn * CHANNEL_NUM_OF_BRANCH;
+		*p = i + bn * CHANNEL_NUM_OF_SEMG;
 		p++;
 		p++;//skip the state
 		for (j = 0; j < 200; j++)
@@ -154,8 +168,18 @@ static void BranchDataInit(unsigned char *recvbuf,int bn)
 		}
 	}
 	*p = 0xED;
+}
 
-
+static void SensorDataInit(unsigned char *recvbuf,int bn)
+{
+	unsigned char *p = recvbuf;
+	p[0] = 0xb8;
+	p[1] = (char)bn;
+	p[2] = SENSOR_DATA_SIZE>>8;
+	p[3] = (unsigned char)SENSOR_DATA_SIZE ;
+	p += 9;
+	p += SENSOR_DATA_SIZE;
+	*p = 0xED;
 }
 
 //!test function: produce sin data.
