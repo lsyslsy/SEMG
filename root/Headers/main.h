@@ -10,7 +10,7 @@
 
 #define ROOT_VERSION       0x0001 //程序版本号
 #define RATE_1K            1  //采集频率 k
-#define BRANCH_NUM         8  //branch 数量
+#define BRANCH_NUM         12  //branch 数量
 
 // SEMG related
 #define SEMG_NUM            8 // semg 数量
@@ -27,7 +27,7 @@
 
 // Motion Sensor related
 #define SENSOR_NUM          4 // sensor 数量
-#define SENSOR_DATA_SIZE    182 // 0x12, branchnum, 100HZ数据
+#define SENSOR_DATA_SIZE    92 // 0x12, branchnum, 100HZ数据
 #define SENSOR_HEADER_SIZE      9
 #define SENSOR_TAIL_SIZE      1
 #define SENSOR_FRAME_SIZE              (SENSOR_HEADER_SIZE + SENSOR_DATA_SIZE + SENSOR_TAIL_SIZE)

@@ -51,5 +51,6 @@ void FunSocket();
 int send_task(int connsock, char cmd);
 void data_packet(unsigned char *pbuf, unsigned int *psize);
 void print_socket_info(int socketfd);
+void socket_init();
 
 #endif

@@ -35,6 +35,23 @@ pthread_mutex_t mutex_send;
 pthread_cond_t cond_send;
 
 /**
+ * Init socket
+ */
+void socket_init()
+{
+	int i;
+	for (i = 0; i < 128; i++) {
+		sendbuff[7 + i * 203] = 0x11;
+		sendbuff[8 + i * 203] = i;
+	}
+
+	for (i = 0; i < 4; i++) {
+		sendbuff[25991 + i * 92] = 0x12;
+		sendbuff[25992 + i * 92] = i + 8;
+	}
+}
+
+/**
  * The main socket function, init socket, listen for conneting
  * if client port is down, func will continue to accept another
  * conneting.

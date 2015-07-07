@@ -118,7 +118,7 @@ void  process(void *parameter)
  		// data parse
  		int tmp = ParseSensorDataPacket(pbuf, branch_num);
 		if (tmp == 0) {
-
+			print_data(pbuf, branch_num);
 		} else {
 			DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
 					branch_num, tmp);

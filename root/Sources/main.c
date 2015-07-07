@@ -173,7 +173,6 @@ void branch_init()
 			DebugError("branches%d ioctl: get expected_fn not equals setted, set: %d, get: %d\n", i, current_fn, retval);
 			continue;
 		}
-			DebugInfo("branches%d ioctl: get expected_fn not equals setted, set: %d, get: %d\n", i, current_fn, retval);
 
 	}
 
@@ -239,7 +238,7 @@ int main()
 		exit(EXIT_FAILURE);
 	}
 	branch_init(); //8 branch init
-
+	socket_init();
 	//SCHED_FIFO适合于实时进程，它们对时间性要求比较强，而每次运行所需要的时间比较短。
 	//一旦这种进程被调度开始运行后，就要一直运行直到自愿让出CPU或者被优先权更高的进程抢占其执行权为止，没有时间片概念。
 	//SCHED_RR对应“时间片轮转法”，适合于每次运行需要较长时间的实时进程。
