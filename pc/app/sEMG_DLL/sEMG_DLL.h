@@ -24,7 +24,7 @@
  * @param[in] ip The device ip address.
  * @return TRUE if operation is successful,else return FALSE.
  */
-sEMGAPI bool  sEMG_open(bool wait, char *ip, int filter_options);
+sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options);
 
 /**
  * Close SEMG device.

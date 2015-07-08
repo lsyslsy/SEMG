@@ -30,7 +30,7 @@ extern int Filter_Options;
 extern void (*notify_data)(void);
 extern void do_nothing();
 
-sEMGAPI bool  sEMG_open(bool wait, char *ip, int filter_options)
+sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options)
 {
 
     unsigned int threadid;

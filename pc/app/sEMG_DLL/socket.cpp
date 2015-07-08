@@ -75,7 +75,7 @@ double BaseLine_bias[MAX_CHANNEL_NUM] = { 0 };
 //int baseline_option = 0;	//<! 基线漂移的选项
 int Filter_Options = 0;		//<! 滤波选项，包括50Hz和基线漂移
 struct dev_info device;
-void (*notify_data)(void);
+void (*notify_data)(void) = NULL;
 void do_nothing(){}
 
 
@@ -84,7 +84,8 @@ void start_comu_thread(unsigned int *tid, struct thread_args *args)
 {
 	//HANDLE ht;
 	args->threadrun = true;
-	notify_data = do_nothing;
+	if (notify_data == NULL)
+		notify_data = do_nothing;
 	//InitializeCriticalSection(&(args->cs));
 	//ht = (HANDLE)_beginthreadex(NULL, 0, comu_thread_proc, args, 0, tid);
 	comu_thread_proc(args);
@@ -148,7 +149,6 @@ void init_dll(void)
 	if (!inited)
 	{
 		device.dev_stat = dev_NONE;
-		notify_data = NULL;
 	}
 	device.version = 0;
 	device.AD_rate = 0;
@@ -177,7 +177,6 @@ void uninit(void)
 	}
 	data_mutex.unlock();
 	inited = false;
-	notify_data = do_nothing;
 	return;
 }
 
@@ -268,7 +267,11 @@ bool init_socket(struct dev_info *pdi,struct protocol_stat *pstat)
 	int Port;
 	int snd_size;
 	int rcv_size;
+#ifdef IN_WINDOWS
+	int optlen = sizeof(int);
+#else
 	unsigned int optlen = sizeof(int);
+#endif
 	//if(argc!=3){printf("Usage:%s [<IP> <Port>]\n",argv[0]);return 0;}
 	/* if(argc!=2)
 	{
@@ -602,7 +605,7 @@ void update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
 	}
 	data_mutex.unlock();
 	if(notify_data != NULL)
-	notify_data();
+		notify_data();
 }
 /* parse_data: parse datapacket*/
 void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num){
