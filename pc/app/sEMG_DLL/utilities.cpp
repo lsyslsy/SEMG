@@ -1,7 +1,12 @@
 ﻿#include <stdio.h>
 #include <stdarg.h>
 #include "semg_debug.h"
+#ifdef IN_WINDOWS
 #include <windows.h>
+#else
+#define OutputDebugString(x) printf("%s", x)
+#endif
+
 void OutputDebugPrintf(const char * strOutputString,...)
 {
 	char strBuffer[4096]={0};

@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include <windows.h>
-
+#include <mutex>
 
 
 /*************** constant *****************/
@@ -79,9 +79,9 @@ struct protocol_stat {
 };
 
 struct thread_args { /* auxiliary thread arguments */
-	BOOL threadrun;
-	CRITICAL_SECTION cs;
-	BOOL is_set;
+	bool threadrun;
+	std::mutex cs_mutex;
+	bool is_set;
 	//unsigned int num[MAX_sEMG_CHANNEL];
 	//struct sample_set set;
 };
@@ -98,22 +98,22 @@ struct dev_info {	/* device information */
 
 
 
-HANDLE start_comu_thread(unsigned int *tid, struct thread_args *args);
+void start_comu_thread(unsigned int *tid, struct thread_args *args);
 void stop_comu_thread(HANDLE ht, struct thread_args *args);
 //UINT WINAPI comu_thread_proc(struct thread_args *args);
-UINT WINAPI comu_thread_proc(void *pargs);
+void comu_thread_proc(void *pargs);
 
 void init_dll(void);
-BOOL init_socket(struct dev_info *pdi,struct protocol_stat *pstat);
+bool init_socket(struct dev_info *pdi,struct protocol_stat *pstat);
 
-//BOOL shakehand_sec(struct dev_info *pdi, struct protocol_stat *pstat);
-BOOL protocol_handler(struct dev_info *pdi, BOOL *prun);
-BOOL shakehand(struct dev_info *pdi, struct protocol_stat *pstat);
-BOOL update_data(struct dev_info *pdi, struct protocol_stat *pstat);
+//bool shakehand_sec(struct dev_info *pdi, struct protocol_stat *pstat);
+bool protocol_handler(struct dev_info *pdi, bool *prun);
+bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat);
+bool update_data(struct dev_info *pdi, struct protocol_stat *pstat);
 void update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat);
 void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num);
-BOOL Is_connect_ready(void);
-BOOL Is_send_ready(void);
-BOOL Is_recv_ready(void);
-BOOL error_handler(struct protocol_stat *pstat);
+bool Is_connect_ready(void);
+bool Is_send_ready(void);
+bool Is_recv_ready(void);
+bool error_handler(struct protocol_stat *pstat);
 void uninit(void);

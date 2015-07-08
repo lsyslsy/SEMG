@@ -11,48 +11,101 @@
 #endif
 
 
-/**  
- * @brief Open SEMG device.
- * 
+/**
+ * Open sEMG device, start the auxiliary thread.
+ * @param[in] wait: if TRUE wait untill open the device,else return immediately.
+ * @param[in] ip The device ip address.
+ * @return TRUE if operation is successful,else return FALSE.
  */
-sEMGAPI BOOL  sEMG_open(BOOL wait, char *ip, int filter_options);
-
-/** 
- * @brief Close SEMG device
- */
-sEMGAPI BOOL  sEMG_close(void);
+sEMGAPI bool  sEMG_open(bool wait, char *ip, int filter_options);
 
 /**
-*  @brief Reset SEMG device
-*/
-sEMGAPI BOOL  sEMG_reset(BOOL wait, char *ip, int filter_options);
+ * Close SEMG device.
+ */
+sEMGAPI bool  sEMG_close(void);
 
 /**
-*  Read dll information
-*/
+ * Reset the device, restart the auxiliary thread.
+ *
+ * @param[in] wait the parameter used to call wmsdas_open.
+ * @return  TRUE if operation successful, else returns FALSE.
+ */
+sEMGAPI bool  sEMG_reset(bool wait, char *ip, int filter_options);
+
+/**
+ * Read dll info.
+ * @param[in] pinfo pointer to a char buffer that has a size larger than dll_info[]
+ * @return the descroptor of this dll
+ */
 sEMGAPI void  get_dll_info(char *pinfo);
 
+/**
+ * Clear internal data buffer.
+ * @note this will lose all the data in the buffer
+ */
 sEMGAPI void  clearbuffer(void);
 
+/**
+ * @returns The device current state.
+ *
+ */
 sEMGAPI int   get_dev_stat(void);
 
+/**
+ * @deprecated not used
+ * @returns The spi current state.
+ *
+ */
 sEMGAPI void   get_spi_stat(void *p);
 
+/**
+ * @returns the device channel number.
+ *
+ */
 sEMGAPI unsigned char   get_channel_num(void);
 
+/**
+ *@returns the device current AD  sample rate .
+ *
+ */
 sEMGAPI unsigned char   get_AD_rate(void);
 
+/**
+ * @returns the device current timestamp 
+ *
+ */
 sEMGAPI unsigned int    get_timestamp(void);
 
+/**
+ * @returns the device lose packet number 
+ *
+ */
 sEMGAPI unsigned int    get_losenum(void);
 
+/**
+ * Get data from internal data buffer if any.
+ *
+ *
+ * @param[in] channel_id the data return channel' id.
+ * @param[in] size the size of sEMGdata array.
+ * @param[out] pd an sEMGdata array pointer to store the data.
+ * @return the count of data actually put into pd[].
+ * @note : the function will just return one semg channel's data
+ */
 sEMGAPI int   get_sEMG_data(int channel_id, unsigned int size, void *pd);
 
+/**
+ * set the callback function of notification
+ *
+ * @param[in] pfunc notification callback function pointer
+ */
+sEMGAPI void set_data_notify(void(*pfunc)(void));
 
-sEMGAPI void set_data_notify(void (*pfunc)(void));
-
+/**
+ * clear the callback function of notification and set donothing
+ *
+ */
 sEMGAPI void reset_data_notify();
 
-sEMGAPI void reset_data_notify();
 
 
