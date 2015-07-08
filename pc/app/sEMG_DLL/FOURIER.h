@@ -1,7 +1,7 @@
 #pragma once
-/**  
+/**
  *  @brief A struct type.
- *  FOURIER paramter structure  
+ *  FOURIER paramter structure
  */
 typedef struct FOURIER_PARM
 {
@@ -9,7 +9,7 @@ typedef struct FOURIER_PARM
 	//double B;	/**< cos信号系数 */
 	//double S1;	/**< 求和保存 */
 	//double S2;	/**< 求和保存 */
-	
+
 
 }FOURIER_PARM;
 
@@ -34,6 +34,5 @@ public:
 private :
 	static const double fb;
 	static const double fs;
-	static const double FOURIER::ssin[20];
+	static const double ssin[20];
 };
-

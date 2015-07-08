@@ -1,13 +1,18 @@
-﻿#pragma once
-#include <windows.h>
+﻿#ifndef _SEMG_DLL_H_
+#define _SEMG_DLL_H_
 
+#ifdef IN_WINDOWS
+#include <windows.h>
+#else
+#define _declspec(x)
+#endif
 
 #define BUILDING_DLL
 
 #ifdef BUILDING_DLL
-#define sEMGAPI extern "C" _declspec(dllexport)
+#define sEMGAPI extern //"C" _declspec(dllexport)
 #else
-#define sEMGAPI extern "C" _declspec(dllimport)
+#define sEMGAPI extern //"C" _declspec(dllimport)
 #endif
 
 
@@ -71,13 +76,13 @@ sEMGAPI unsigned char   get_channel_num(void);
 sEMGAPI unsigned char   get_AD_rate(void);
 
 /**
- * @returns the device current timestamp 
+ * @returns the device current timestamp
  *
  */
 sEMGAPI unsigned int    get_timestamp(void);
 
 /**
- * @returns the device lose packet number 
+ * @returns the device lose packet number
  *
  */
 sEMGAPI unsigned int    get_losenum(void);
@@ -107,5 +112,4 @@ sEMGAPI void set_data_notify(void(*pfunc)(void));
  */
 sEMGAPI void reset_data_notify();
 
-
-
+#endif

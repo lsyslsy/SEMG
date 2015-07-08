@@ -1,5 +1,10 @@
-﻿#pragma once
+﻿#ifndef _SOCKET_H_
+#define _SOCKET_H_
+
+#ifdef IN_WINDOWS
 #include <windows.h>
+#endif
+
 #include <mutex>
 
 
@@ -16,7 +21,7 @@ enum dev_stat {
 	dev_START,
 	dev_CONNECT,
 	dev_UNCONNECT,
-	dev_ERROR			
+	dev_ERROR
 };
 
 enum error_stat {
@@ -62,8 +67,8 @@ struct raw_sEMGdata{
 };
 
 struct cyc_buffer {	/* internal cyclical buffer (one channel) */
-	//unsigned char packet_class;     
-	unsigned int valid_amount;		                        /* valid amount of data */	
+	//unsigned char packet_class;
+	unsigned int valid_amount;		                        /* valid amount of data */
 	unsigned int header;			                        /* header pointer of buffer */
 	unsigned char channel_id;			                    /* channel information */
 	struct sEMGdata data[CYCLICAL_BUFFER_SIZE];				/* proccessed data array */
@@ -92,14 +97,14 @@ struct dev_info {	/* device information */
 	unsigned char AD_rate;  /*AD rate*/
 	int dev_stat;					/* current device stat */
 	char ip[20];						/* device ip addr*/
-	HANDLE hdev;					/* device handle */
+	int hdev;					/* device handle */
 };
 
 
 
 
 void start_comu_thread(unsigned int *tid, struct thread_args *args);
-void stop_comu_thread(HANDLE ht, struct thread_args *args);
+void stop_comu_thread(int ht, struct thread_args *args);
 //UINT WINAPI comu_thread_proc(struct thread_args *args);
 void comu_thread_proc(void *pargs);
 
@@ -117,3 +122,5 @@ bool Is_send_ready(void);
 bool Is_recv_ready(void);
 bool error_handler(struct protocol_stat *pstat);
 void uninit(void);
+
+#endif

@@ -3,7 +3,7 @@
 
 #include "semg_debug.h"
 
-# define M_PI       3.14159265358979323846  /* pi */
+//# define M_PI       3.14159265358979323846  /* pi */
 const double FOURIER::fb = 50;
 const double FOURIER::fs = 1000;//1000HZ
 const double FOURIER::ssin[20] = { 0.000000, 0.309017, 0.587785, 0.809017, 0.951057, 1.000000, 0.951057, 0.809017, 0.587785, 0.309017, 0.000000, -0.309017, -0.587785, -0.809017, -0.951057, -1.000000, -0.951057, -0.809017, -0.587785, -0.309017 };
@@ -17,7 +17,7 @@ FOURIER::~FOURIER()
 }
 void FOURIER::filter_init(FOURIER_PARM *channel)
 {
-	
+
 }
 
 /**
@@ -70,5 +70,5 @@ void FOURIER::filter(FOURIER_PARM *channel, double *DIN, double *DOUT, unsigned 
 
 	}
 
-	
+
 }

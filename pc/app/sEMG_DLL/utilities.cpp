@@ -12,7 +12,11 @@ void OutputDebugPrintf(const char * strOutputString,...)
 	char strBuffer[4096]={0};
 	va_list vlArgs;
 	va_start(vlArgs,strOutputString);
+	#ifdef IN_WINDOWS
 	_vsnprintf(strBuffer,sizeof(strBuffer)-1,strOutputString,vlArgs);
+	#else
+	vsnprintf(strBuffer,sizeof(strBuffer)-1,strOutputString,vlArgs);
+	#endif
 	//vsprintf(strBuffer,strOutputString,vlArgs);
 	va_end(vlArgs);
 	OutputDebugString(strBuffer);

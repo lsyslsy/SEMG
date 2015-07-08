@@ -1,7 +1,7 @@
 #pragma once
-/**  
+/**
  *  @brief A struct type.
- *  RLS paramter structure  
+ *  RLS paramter structure
  */
 typedef struct RLS_PARM
 {
@@ -35,6 +35,5 @@ private :
 	static const double fb;
 	static const double fs;
 	static const double lambda;
-	static const double RLS::ssin[20];
+	static const double ssin[20];
 };
-

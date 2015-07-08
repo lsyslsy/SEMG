@@ -2,6 +2,7 @@
 	#undef UNICODE
 #endif
 #include <stdio.h>
+#include <stdlib.h>
 #include "sEMG_DLL.h"
 #include "socket.h"
 
@@ -19,7 +20,7 @@ struct thread_args targs;						/* thread arguments */
 extern struct dev_info device;
 extern unsigned int timestamp;
 extern unsigned int lose_num;
-extern unsigned char spi_stat[2]; 
+extern unsigned char spi_stat[2];
 extern bool inited;
 extern std::mutex data_mutex;			/* for pcbuffer use */
 extern struct cyc_buffer *pcbuffer[MAX_CHANNEL_NUM];
@@ -30,7 +31,7 @@ extern void do_nothing();
 
 sEMGAPI bool  sEMG_open(bool wait, char *ip, int filter_options)
 {
-	
+
     unsigned int threadid;
 	bool ret = true;
 	init_dll();
@@ -39,31 +40,31 @@ sEMGAPI bool  sEMG_open(bool wait, char *ip, int filter_options)
 	//int filter_options
 	std::thread t1 { start_comu_thread, &threadid, &targs };
 	t1.detach();
-	
+
 	//if (hthread == INVALID_HANDLE_VALUE || targs.threadrun != true)// || targs.is_set != true)
 	//{
 	//	DebugError(TEXT("hthread error!!\n"));
 	//	return false;
 	//}
-	while (wait) 
+	while (wait)
 	{
 		std::this_thread::sleep_for(seconds{1});//1000ms
 
-		if (device.dev_stat == dev_CONNECT) 
+		if (device.dev_stat == dev_CONNECT)
 		{
-			DebugInfo(TEXT("success!!\n"));
+			DebugInfo("success!!\n");
 			wait = false;
-		} 
+		}
 		else if (device.dev_stat== dev_UNCONNECT ||
-			device.dev_stat == dev_ERROR) 
+			device.dev_stat == dev_ERROR)
 		{
-			DebugError(TEXT("final failed!!\n"));
+			DebugError("final failed!!\n");
 			wait = false;
 			ret = false;
 		}
 		else
 		{
-			DebugError(TEXT("final failed!!\n"));
+			DebugError("final failed!!\n");
 			wait = false;
 			ret = false;
 		}
@@ -78,7 +79,7 @@ sEMGAPI bool  sEMG_open(bool wait, char *ip, int filter_options)
  */
 sEMGAPI bool  sEMG_close(void)
 {
-	/*if (hthread != INVALID_HANDLE_VALUE) 
+	/*if (hthread != INVALID_HANDLE_VALUE)
 	{
 		stop_comu_thread(hthread, &targs);
 		hthread = INVALID_HANDLE_VALUE;
@@ -128,7 +129,7 @@ sEMGAPI void  clearbuffer(void)
 		return;
 
 	data_mutex.lock();
-	for (i=0; i<MAX_CHANNEL_NUM; i++) 
+	for (i=0; i<MAX_CHANNEL_NUM; i++)
 	{
 		if(pcbuffer[i])
 			free(pcbuffer[i]);
@@ -192,11 +193,11 @@ sEMGAPI int   get_sEMG_data(int channel_id, unsigned int size, void *pd)
 				num = size;
 			else
 				num = pcbuffer[channel_id]->valid_amount;
-	
+
 			header = (pcbuffer[channel_id]->header + CYCLICAL_BUFFER_SIZE - pcbuffer[channel_id]->valid_amount + 1) % CYCLICAL_BUFFER_SIZE;//计算数据指针初始位置
 			pcbuffer[channel_id]->valid_amount -= num;
-			
-			for (i=0; i<num; i++) 
+
+			for (i=0; i<num; i++)
 			{
 				((struct sEMGdata*)pd)[i] = pcbuffer[channel_id]->data[header];
 				header = (++header) % CYCLICAL_BUFFER_SIZE;

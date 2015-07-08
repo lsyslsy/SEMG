@@ -3,7 +3,7 @@
 
 #include "semg_debug.h"
 
-# define M_PI       3.14159265358979323846  /* pi */
+//# define M_PI       3.14159265358979323846  /* pi */
 const double RLS::fb = 50;
 const double RLS::fs = 1000;//1000HZ
 const double RLS::lambda = 0.996;
@@ -63,7 +63,7 @@ void RLS::filter(RLS_PARM *channel, double *DIN, double *DOUT, unsigned int LEN)
 			tmp = -DATASCALE;
 		}
 		DOUT[n] = tmp;
-		
+
 	}
-	
+
 }
