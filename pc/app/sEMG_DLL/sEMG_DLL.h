@@ -3,17 +3,19 @@
 
 #ifdef IN_WINDOWS
 #include <windows.h>
-#else
-#define _declspec(x)
-#endif
-
 #define BUILDING_DLL
-
 #ifdef BUILDING_DLL
-#define sEMGAPI extern //"C" _declspec(dllexport)
+#define sEMGAPI extern "C" _declspec(dllexport)
 #else
-#define sEMGAPI extern //"C" _declspec(dllimport)
+#define sEMGAPI extern "C" _declspec(dllimport)
 #endif
+
+#else // unix
+
+#define sEMGAPI extern
+
+#endif
+
 
 
 /**

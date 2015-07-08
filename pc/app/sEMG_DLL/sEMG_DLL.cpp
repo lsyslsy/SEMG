@@ -3,6 +3,7 @@
 #endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "sEMG_DLL.h"
 #include "socket.h"
 
