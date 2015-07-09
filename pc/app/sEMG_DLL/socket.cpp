@@ -316,10 +316,6 @@ bool init_socket(struct dev_info *pdi,struct protocol_stat *pstat)
 	unsigned long mode = 1;//设置为非阻塞方式，0 为阻塞
 	ioctlsocket(tcp_socket,FIONBIO,&mode);//把套接字设成非阻塞的
 
-	FD_ZERO(&fdread);
-	FD_SET(tcp_socket,&fdread);
-	FD_ZERO(&fdwrite);
-	FD_SET(tcp_socket,&fdwrite);
 	//error process
     //WSACleanup( );
 	pstat->cmd_stat = PSTAT_SHAKEHAND;
@@ -647,6 +643,13 @@ void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num){
 inline bool Is_connect_ready(void)
 {
 	int ret;
+	FD_ZERO(&fdread);
+	FD_SET(tcp_socket,&fdread);
+	FD_ZERO(&fdwrite);
+	FD_SET(tcp_socket,&fdwrite);
+	con_timeout.tv_sec = 2;
+	con_timeout.tv_usec = 0;
+	// Note: linux会改变该con_timeout值,而且每次select以后描述符集合可能会变化
 	ret = select(tcp_socket+1, NULL, &fdwrite, NULL, &con_timeout);
 	if (ret <= 0)
 	{
@@ -660,6 +663,13 @@ inline bool Is_connect_ready(void)
 inline bool Is_send_ready(void)
 {
 	int ret;
+	FD_ZERO(&fdread);
+	FD_SET(tcp_socket,&fdread);
+	FD_ZERO(&fdwrite);
+	FD_SET(tcp_socket,&fdwrite);
+	sen_timeout.tv_sec = 1;
+	sen_timeout.tv_usec = 0;
+	// Note: linux会改变该con_timeout值,而且每次select以后描述符集合可能会变化
 	ret = select(tcp_socket+1, NULL, &fdwrite, NULL, &sen_timeout);
 	if (ret <= 0)
 	{
@@ -672,6 +682,13 @@ inline bool Is_send_ready(void)
 inline bool Is_recv_ready(void)
 {
 	int ret;
+	FD_ZERO(&fdread);
+	FD_SET(tcp_socket,&fdread);
+	FD_ZERO(&fdwrite);
+	FD_SET(tcp_socket,&fdwrite);
+	rev_timeout.tv_sec = 1;
+	rev_timeout.tv_usec = 0;
+	// Note: linux会改变该con_timeout值,而且每次select以后描述符集合可能会变化
 	ret = select(tcp_socket + 1, &fdread, NULL, NULL, &rev_timeout);
 	if (ret <= 0)
 	{
