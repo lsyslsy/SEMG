@@ -1,5 +1,5 @@
 ﻿#ifdef UNICODE
-	#undef UNICODE
+#undef UNICODE
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +13,7 @@
 
 using namespace std::chrono;
 
-const char dll_info[] = {"Program version V1.0.0\nAther: Hu Ye, 2013.05.20"};
+const char dll_info[] = { "Program version V1.0.0\nAther: Hu Ye, 2013.05.20" };
 
 //HANDLE hthread = INVALID_HANDLE_VALUE;			/* the handle of the auxiliary thread */
 struct thread_args targs;						/* thread arguments */
@@ -27,7 +27,7 @@ extern std::mutex data_mutex;			/* for pcbuffer use */
 extern struct cyc_buffer *pcbuffer[MAX_CHANNEL_NUM];
 
 extern int Filter_Options;
-extern void (*notify_data)(void);
+extern void(*notify_data)(void);
 extern void do_nothing();
 
 // std::thread *com_thread;
@@ -35,13 +35,13 @@ extern void do_nothing();
 sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options)
 {
 
-    unsigned int threadid;
+	unsigned int threadid;
 	bool ret = true;
 
 	Filter_Options = filter_options;
 	strcpy(device.ip, ip);
 	//int filter_options
-	std::thread t1 { start_comu_thread, &threadid, &targs };
+	std::thread t1{ start_comu_thread, &threadid, &targs };
 	t1.detach();
 
 	//if (hthread == INVALID_HANDLE_VALUE || targs.threadrun != true)// || targs.is_set != true)
@@ -49,24 +49,18 @@ sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options)
 	//	DebugError(TEXT("hthread error!!\n"));
 	//	return false;
 	//}
-	while (wait)
-	{
-		std::this_thread::sleep_for(seconds{1});//1000ms
+	while (wait) {
+		std::this_thread::sleep_for(seconds{ 1 });//1000ms
 
-		if (device.dev_stat == dev_CONNECT)
-		{
+		if (device.dev_stat == dev_CONNECT) {
 			DebugInfo("success!!\n");
 			wait = false;
-		}
-		else if (device.dev_stat== dev_UNCONNECT ||
-			device.dev_stat == dev_ERROR)
-		{
+		} else if (device.dev_stat == dev_UNCONNECT ||
+			device.dev_stat == dev_ERROR) {
 			DebugError("final failed!!\n");
 			wait = false;
 			ret = false;
-		}
-		else
-		{
+		} else {
 			DebugError("final failed!!\n");
 			wait = false;
 			ret = false;
@@ -83,12 +77,12 @@ sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options)
  */
 sEMGAPI bool  sEMG_close(void)
 {
-//	if (hthread != INVALID_HANDLE_VALUE)
-//	{
-//		stop_comu_thread(hthread, &targs);
-//		hthread = INVALID_HANDLE_VALUE;
-//	}
-    stop_comu_thread(0, &targs);
+	//	if (hthread != INVALID_HANDLE_VALUE)
+	//	{
+	//		stop_comu_thread(hthread, &targs);
+	//		hthread = INVALID_HANDLE_VALUE;
+	//	}
+	stop_comu_thread(0, &targs);
 	return true;
 }
 
@@ -101,24 +95,24 @@ sEMGAPI bool  sEMG_reset(bool wait, char *ip, int filter_options)
 }
 
 
-sEMGAPI void set_data_notify(void (*pfunc)(void))
+sEMGAPI void set_data_notify(void(*pfunc)(void))
 {
-   notify_data = pfunc;
-   return;
+	notify_data = pfunc;
+	return;
 }
 
 
 sEMGAPI void reset_data_notify(void)
 {
-   notify_data = do_nothing;
-   return;
+	notify_data = do_nothing;
+	return;
 }
 
 sEMGAPI void  get_dll_info(char *pinfo)
 {
 	int i;
-	for (i=0; i<sizeof(dll_info); i++){
-    	*pinfo = dll_info[i];
+	for (i = 0; i < sizeof(dll_info); i++) {
+		*pinfo = dll_info[i];
 		pinfo++;
 	}
 	return;
@@ -126,18 +120,18 @@ sEMGAPI void  get_dll_info(char *pinfo)
 
 sEMGAPI void  clearbuffer(void)
 {
-//	int i;
-//	if (targs.threadrun == false)
-//		return;
-//
-//	data_mutex.lock();
-//	for (i=0; i<MAX_CHANNEL_NUM; i++)
-//	{
-//		if(pcbuffer[i])
-//			free(pcbuffer[i]);
-//		pcbuffer[i] = NULL;
-//	}
-//	data_mutex.unlock();
+	//	int i;
+	//	if (targs.threadrun == false)
+	//		return;
+	//
+	//	data_mutex.lock();
+	//	for (i=0; i<MAX_CHANNEL_NUM; i++)
+	//	{
+	//		if(pcbuffer[i])
+	//			free(pcbuffer[i]);
+	//		pcbuffer[i] = NULL;
+	//	}
+	//	data_mutex.unlock();
 	return;
 }
 
@@ -171,45 +165,43 @@ sEMGAPI unsigned int  get_timestamp(void)
 
 sEMGAPI unsigned int  get_losenum(void)
 {
-    return lose_num;
+	return lose_num;
 }
 
 
 sEMGAPI int get_sEMG_data(int channel_id, unsigned int size, void *pd)
 {
-    int i;
+	int i;
 	int num;//the actual count of data to read
 	unsigned int header;
 	struct sEMGdata *psn;
 	num = 0;
 	//TODO 优化掉数据同步问题
 	psn = (struct sEMGdata *)pd;
-	if (channel_id>=MAX_CHANNEL_NUM)
-	     return num;
-	data_mutex.lock();
-	if(pcbuffer[channel_id] == NULL)
+	if (channel_id >= MAX_CHANNEL_NUM)
 		return num;
-	if (pcbuffer[channel_id]->valid_amount) //any valid channel data
-		{
-			if (size < pcbuffer[channel_id]->valid_amount)
-				num = size;
-			else
-				num = pcbuffer[channel_id]->valid_amount;
+	data_mutex.lock();
+	if (pcbuffer[channel_id] == NULL)
+		return num;
+	if (pcbuffer[channel_id]->valid_amount) {  //any valid channel data
+		if (size < pcbuffer[channel_id]->valid_amount)
+			num = size;
+		else
+			num = pcbuffer[channel_id]->valid_amount;
 
-			header = (pcbuffer[channel_id]->header + CYCLICAL_BUFFER_SIZE - pcbuffer[channel_id]->valid_amount + 1) % CYCLICAL_BUFFER_SIZE;//计算数据指针初始位置
-			pcbuffer[channel_id]->valid_amount -= num;
+		header = (pcbuffer[channel_id]->header + CYCLICAL_BUFFER_SIZE - pcbuffer[channel_id]->valid_amount + 1) % CYCLICAL_BUFFER_SIZE;//计算数据指针初始位置
+		pcbuffer[channel_id]->valid_amount -= num;
 
-			for (i=0; i<num; i++)
-			{
-				((struct sEMGdata*)pd)[i] = pcbuffer[channel_id]->data[header];
-				header = (++header) % CYCLICAL_BUFFER_SIZE;
-			}
+		for (i = 0; i < num; i++) {
+			((struct sEMGdata*)pd)[i] = pcbuffer[channel_id]->data[header];
+			header = (++header) % CYCLICAL_BUFFER_SIZE;
 		}
+	}
 
 #ifdef DLL_DEBUG_MODE
 	//OutputDebugPrintf("DEBUG_INFO | channelID = %d num = %d, valid_amount = %d\n",channel_id,num,pcbuffer[channel_id]->valid_amount);
 #endif
 
-    data_mutex.unlock();
+	data_mutex.unlock();
 	return num;
 }

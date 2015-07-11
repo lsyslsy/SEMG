@@ -15,7 +15,7 @@ const double Butterworth::DEN[5] = {
 
 Butterworth::Butterworth()
 {
-	
+
 }
 
 
@@ -51,20 +51,17 @@ void Butterworth::filter(Butterworth_4order *channel, double *DIN, double *DOUT,
 {
 	double tmp;
 	unsigned int i;
-	for (i = 0; i<LEN; i++)
-	{
+	for (i = 0; i < LEN; i++) {
 
 		channel->x0 = *DIN;
 		tmp = NUM[0] * channel->x0 + NUM[1] * channel->x1 + NUM[2] * channel->x2 + \
 			NUM[3] * channel->x3 + NUM[4] * channel->x4 - DEN[1] * channel->y1 \
 			- DEN[2] * channel->y2 - DEN[3] * channel->y3 - DEN[4] * channel->y4;
 		tmp /= DEN[0];
-		if (tmp >= DATASCALE)
-		{
+		if (tmp >= DATASCALE) {
 			tmp = DATASCALE;
 		}
-		if (tmp <= -DATASCALE)
-		{
+		if (tmp <= -DATASCALE) {
 			tmp = -DATASCALE;
 		}
 

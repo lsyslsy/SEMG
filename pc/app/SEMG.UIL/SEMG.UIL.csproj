@@ -159,12 +159,6 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\sEMG_DLL\sEMG_DLL.vcxproj">
-      <Project>{4c1e5486-8b63-463d-b6ca-a7e8d40cb79a}</Project>
-      <Name>sEMG_DLL</Name>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

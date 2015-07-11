@@ -42,8 +42,7 @@ void FOURIER::filter(FOURIER_PARM *channel, double *DIN, double *DOUT, unsigned 
 	double A = 0;
 	double B = 0;
 	//因为LEN是100的倍数
-	for (n = 0; n < LEN; n++)
-	{
+	for (n = 0; n < LEN; n++) {
 		i = n % 20;
 		j = (n + 5) % 20;
 		S1 = S1 + DIN[n] * ssin[i];
@@ -53,18 +52,15 @@ void FOURIER::filter(FOURIER_PARM *channel, double *DIN, double *DOUT, unsigned 
 
 	A = S1 * 2 / 100;
 	B = S2 * 2 / 100;
-	for (n = 0; n < LEN; n++)
-	{
+	for (n = 0; n < LEN; n++) {
 		i = n % 20;
 		j = (n + 5) % 20;
 		tmp = A*ssin[i] + B* ssin[j];
 		DOUT[n] = DIN[n] - tmp;
-		if (DOUT[n] >= DATASCALE)
-		{
+		if (DOUT[n] >= DATASCALE) {
 			DOUT[n] = DATASCALE;
 		}
-		if (DOUT[n] <= -DATASCALE)
-		{
+		if (DOUT[n] <= -DATASCALE) {
 			DOUT[n] = -DATASCALE;
 		}
 

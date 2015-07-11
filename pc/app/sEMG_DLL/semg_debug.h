@@ -9,7 +9,7 @@
 #define DEBUG_ERROR
 /**********************/
 
-void OutputDebugPrintf(const char * strOutputString,...);
+void OutputDebugPrintf(const char * strOutputString, ...);
 #ifndef NDEBUG
 #ifdef DEBUG_INFO
 #define DebugInfo  OutputDebugPrintf

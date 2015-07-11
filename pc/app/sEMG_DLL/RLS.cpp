@@ -43,8 +43,7 @@ void RLS::filter(RLS_PARM *channel, double *DIN, double *DOUT, unsigned int LEN)
 	int i = 0;
 	int j = 0;
 	//因为LEN是100的倍数
-	for (n = 0; n < LEN; n++)
-	{
+	for (n = 0; n < LEN; n++) {
 		i = n % 20;
 		j = (n + 5) % 20;
 		x_ = channel->b*ssin[i] + channel->c*ssin[j];
@@ -54,12 +53,10 @@ void RLS::filter(RLS_PARM *channel, double *DIN, double *DOUT, unsigned int LEN)
 		channel->b = channel->b + channel->e*ssin[i] / channel->r1;
 		channel->c = channel->c + channel->e*ssin[j] / channel->r4;
 		tmp = channel->e;
-		if (tmp >= DATASCALE)
-		{
+		if (tmp >= DATASCALE) {
 			tmp = DATASCALE;
 		}
-		if (tmp <= -DATASCALE)
-		{
+		if (tmp <= -DATASCALE) {
 			tmp = -DATASCALE;
 		}
 		DOUT[n] = tmp;

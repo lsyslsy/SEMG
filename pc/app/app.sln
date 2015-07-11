@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sEMG_DLL", "sEMG_DLL\sEMG_DLL.vcxproj", "{4C1E5486-8B63-463D-B6CA-A7E8D40CB79A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SEMG.UIL", "SEMG.UIL\SEMG.UIL.csproj", "{36DBA8B7-55C6-447B-A0A6-FF30432DF721}"
+	ProjectSection(ProjectDependencies) = postProject
+		{4C1E5486-8B63-463D-B6CA-A7E8D40CB79A} = {4C1E5486-8B63-463D-B6CA-A7E8D40CB79A}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E678D60F-C356-46C7-AC36-73E229F16D35}"
 	ProjectSection(SolutionItems) = preProject
