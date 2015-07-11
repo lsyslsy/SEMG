@@ -30,12 +30,14 @@ extern int Filter_Options;
 extern void (*notify_data)(void);
 extern void do_nothing();
 
+// std::thread *com_thread;
+
 sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options)
 {
 
     unsigned int threadid;
 	bool ret = true;
-	init_dll();
+
 	Filter_Options = filter_options;
 	strcpy(device.ip, ip);
 	//int filter_options
@@ -76,19 +78,18 @@ sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options)
 /**
  * close the device, stop the auxiliary thread
  *
+ * @note 当前实现不完全
  * @return true if operation successful, else returns false
  */
 sEMGAPI bool  sEMG_close(void)
 {
-	/*if (hthread != INVALID_HANDLE_VALUE)
-	{
-		stop_comu_thread(hthread, &targs);
-		hthread = INVALID_HANDLE_VALUE;
-	}
-	if (inited)
-		uninit();
-	return true;*/
-	return false; // 找不到方法
+//	if (hthread != INVALID_HANDLE_VALUE)
+//	{
+//		stop_comu_thread(hthread, &targs);
+//		hthread = INVALID_HANDLE_VALUE;
+//	}
+    stop_comu_thread(0, &targs);
+	return true;
 }
 
 sEMGAPI bool  sEMG_reset(bool wait, char *ip, int filter_options)
@@ -125,18 +126,18 @@ sEMGAPI void  get_dll_info(char *pinfo)
 
 sEMGAPI void  clearbuffer(void)
 {
-	int i;
-	if (targs.threadrun == false)
-		return;
-
-	data_mutex.lock();
-	for (i=0; i<MAX_CHANNEL_NUM; i++)
-	{
-		if(pcbuffer[i])
-			free(pcbuffer[i]);
-		pcbuffer[i] = NULL;
-	}
-	data_mutex.unlock();
+//	int i;
+//	if (targs.threadrun == false)
+//		return;
+//
+//	data_mutex.lock();
+//	for (i=0; i<MAX_CHANNEL_NUM; i++)
+//	{
+//		if(pcbuffer[i])
+//			free(pcbuffer[i]);
+//		pcbuffer[i] = NULL;
+//	}
+//	data_mutex.unlock();
 	return;
 }
 
@@ -174,7 +175,7 @@ sEMGAPI unsigned int  get_losenum(void)
 }
 
 
-sEMGAPI int   get_sEMG_data(int channel_id, unsigned int size, void *pd)
+sEMGAPI int get_sEMG_data(int channel_id, unsigned int size, void *pd)
 {
     int i;
 	int num;//the actual count of data to read
@@ -186,7 +187,7 @@ sEMGAPI int   get_sEMG_data(int channel_id, unsigned int size, void *pd)
 	if (channel_id>=MAX_CHANNEL_NUM)
 	     return num;
 	data_mutex.lock();
-	if(pcbuffer[channel_id]==NULL)
+	if(pcbuffer[channel_id] == NULL)
 		return num;
 	if (pcbuffer[channel_id]->valid_amount) //any valid channel data
 		{

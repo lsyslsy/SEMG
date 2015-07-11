@@ -48,6 +48,7 @@ sEMGAPI void  get_dll_info(char *pinfo);
 
 /**
  * Clear internal data buffer.
+ * @deprecated not used
  * @note this will lose all the data in the buffer
  */
 sEMGAPI void  clearbuffer(void);

@@ -7,7 +7,7 @@
 struct sEMGdata {
     double point[POINT_NUM];
 };
-sEMGdata mydata[10] = {0};
+sEMGdata mydata[10] = {{{0}}};
 int usingChannelNum = -1;
 
 void read_dev();

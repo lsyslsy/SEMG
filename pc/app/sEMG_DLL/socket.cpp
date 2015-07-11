@@ -63,11 +63,11 @@ struct timeval rev_timeout = {1,0};
 unsigned int timestamp = 0;
 unsigned int old_timestamp = 0;
 unsigned int lose_num = 0;
-bool inited;
+bool inited = false;
 unsigned char spi_stat[2];//暂时用来反馈SPI用
 
 std::mutex data_mutex;			/* for pcbuffer use */
-struct cyc_buffer *pcbuffer[MAX_CHANNEL_NUM];	/* pointer of internal cyclical data buffer */
+struct cyc_buffer *pcbuffer[MAX_CHANNEL_NUM] = {nullptr};	/* pointer of internal cyclical data buffer */
 
 RLS_PARM RlsFilters[MAX_CHANNEL_NUM];
 Butterworth_4order BwFilters[MAX_CHANNEL_NUM];
@@ -86,7 +86,6 @@ void start_comu_thread(unsigned int *tid, struct thread_args *args)
 	args->threadrun = true;
 	if (notify_data == NULL)
 		notify_data = do_nothing;
-	//InitializeCriticalSection(&(args->cs));
 	//ht = (HANDLE)_beginthreadex(NULL, 0, comu_thread_proc, args, 0, tid);
 	comu_thread_proc(args);
 	//thread
@@ -94,6 +93,7 @@ void start_comu_thread(unsigned int *tid, struct thread_args *args)
 	//return ht;
 }
 
+// 1个问题，不进行join就没法确定该线程已经down了
 /* stop_comu_thread: stop the communication thread */
 void stop_comu_thread(int ht, struct thread_args *args)
 {
@@ -102,7 +102,6 @@ void stop_comu_thread(int ht, struct thread_args *args)
 	std::this_thread::sleep_for(seconds{1});		/* wait for a while, the comu_thread may be frozen in read_data() .etc */
 	//CloseHandle(ht);
 	notify_data = do_nothing;
-	//DeleteCriticalSection(&(args->cs));
 
 }
 
@@ -114,15 +113,12 @@ void comu_thread_proc(void *pargs)//(struct thread_args *args)
 {
 	//struct dev_info dinfo;	/* device info */
 	thread_args *args = (thread_args *)pargs;
-	//printf("%d\n",args->threadrun);
-	while (args->threadrun)
-	{
+    init_dll();
+	while (args->threadrun) {
 		device.dev_stat = dev_START;
 		protocol_handler(&device, &(args->threadrun));
-		/*if (inited)
-			uninit();
-		init_dll();*/
-	}
+    };
+    uninit();
 	//return 0;
 }
 
@@ -132,24 +128,14 @@ void init_dll(void)
 {
 	int i;
 
-	if (!inited)
-	{
-		//InitializeCriticalSection(&data_cs);
-	}
 	//init the data buffer
 	data_mutex.lock();
-	for (i=0;i<MAX_CHANNEL_NUM;i++)
-	{
-		if (pcbuffer[i])
-			free(pcbuffer[i]);
-		pcbuffer[i] = NULL;	// no data right now
+	for (i=0;i<MAX_CHANNEL_NUM;i++) {
+        pcbuffer[i] = (struct cyc_buffer *)malloc(sizeof(struct cyc_buffer));
 	}
 	data_mutex.unlock();
 
-	if (!inited)
-	{
-		device.dev_stat = dev_NONE;
-	}
+    device.dev_stat = dev_NONE;
 	device.version = 0;
 	device.AD_rate = 0;
 	device.channel_num = 0;
@@ -163,10 +149,6 @@ void init_dll(void)
 /* uninit: uninitialize everything */
 void uninit(void)
 {
-	closesocket(tcp_socket);
-#ifdef IN_WINDOWS
-	WSACleanup();   //释放套接字资源;
-#endif
 	int i;
 	data_mutex.lock();
 	for (i = 0; i<MAX_CHANNEL_NUM; i++)
@@ -208,7 +190,6 @@ bool protocol_handler(struct dev_info *pdi, bool *prun)
 	data_mutex.lock();
 	for (i=0;i<MAX_CHANNEL_NUM;i++)
 	{
-		pcbuffer[i] = (struct cyc_buffer *)malloc(sizeof(struct cyc_buffer));
 		pcbuffer[i]->header = -1;
 		pcbuffer[i]->valid_amount = 0;
 		pcbuffer[i]->channel_id = i;
@@ -234,28 +215,26 @@ bool protocol_handler(struct dev_info *pdi, bool *prun)
 		case PSTAT_DATA:
 			//isok = shakehand_sec(pdi, &stat);
 			isok = update_data(pdi, &stat);
-			//temp++;
-			//printf("totalturn:%ld\n",temp);
-			//this_thread::sleep_for(milliseconds{{500);
 			break;
 		default:
 			isok = false;
 			break;
 		}
-		//		if (WAIT_OBJECT_0 == WaitForSingleObject(g_eventLowerUPTRate, 0))
-		//		{
-		//			stat.cmd_stat = PSTAT_CHANGE_UPDATE_RATE;
-		//			root_stat.sensor_update_rate = 30;
-		//		}
 
 		if (!isok && !error_handler(&stat))
 			break;
 	}
+    
+    closesocket(tcp_socket);
+#ifdef IN_WINDOWS
+    WSACleanup();   //释放套接字资源;
+#endif
 	if (stat.pdata)
 		free(stat.pdata);
 	return isok;
 }
 
+// 缺少很多的错误处理
 /* init_socket: init the socket */
 bool init_socket(struct dev_info *pdi,struct protocol_stat *pstat)
 {
@@ -272,15 +251,8 @@ bool init_socket(struct dev_info *pdi,struct protocol_stat *pstat)
 #else
 	unsigned int optlen = sizeof(int);
 #endif
-	//if(argc!=3){printf("Usage:%s [<IP> <Port>]\n",argv[0]);return 0;}
-	/* if(argc!=2)
-	{
-	printf("Usage:%s [<IP>]\n",argv[0]);
-	return false;
-	}*/
-	//Addr=inet_addr(argv[1]);
+	
 	Addr = inet_addr(device.ip);//点分十进制字符串转成ulong
-	//Port=atoi(argv[2]);
 	Port = PORT;
 #ifdef IN_WINDOWS
 	WSAStartup(MAKEWORD(2,2),&wsd);//Winsock 2.2
@@ -332,25 +304,25 @@ bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat)
 	#else
 	connect(tcp_socket, (struct sockaddr *)&tcpAddr, sizeof(tcpAddr));
 	#endif
-	if (Is_connect_ready())
-	{
-		//connect(tcp_socket,(LPSOCKADDR)&tcpAddr,sizeof(tcpAddr));
-		DebugInfo("connect is OK!\n");
-		//pstat->cmd_stat= PSTAT_DATA;
-		pdi->dev_stat = dev_CONNECT;
-	}
-	else
-	{
-		DebugError("connect error!\n");
-		pdi->dev_stat = dev_UNCONNECT;
-		pstat->error = SOCKET_CONNECT_TIMEOUT;
-		return false;
-	}
-	if (Is_send_ready() == false)
-	{
-		pstat->error = SOCKET_DATA_TIMEOUT;
-		return false;
-	}
+    if (Is_connect_ready())
+    {
+        //connect(tcp_socket,(LPSOCKADDR)&tcpAddr,sizeof(tcpAddr));
+        DebugInfo("connect is OK!\n");
+        //pstat->cmd_stat= PSTAT_DATA;
+        pdi->dev_stat = dev_CONNECT;
+    }
+    else
+    {
+        DebugError("connect error!\n");
+        pdi->dev_stat = dev_UNCONNECT;
+        pstat->error = SOCKET_CONNECT_TIMEOUT;
+        return false;
+    }
+    if (Is_send_ready() == false)
+    {
+        pstat->error = SOCKET_DATA_TIMEOUT;
+        return false;
+    }
 	cmd = 'H';
 	/* handshake step 1: 'h'<-->'h' */
 	length = send(tcp_socket,&cmd,1,0);
@@ -399,48 +371,6 @@ bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat)
 	return true;
 }
 
-//bool shakehand_sec(struct dev_info *pdi, struct protocol_stat *pstat)
-//{
-//     int length;
-//	 //int ret;
-//	 //ret = select(tcp_socket+1, NULL, &fdwrite, NULL, &sen_timeout);
-//	 if (Is_send_ready() == false)
-//	 {
-//		 pstat->error = SOCKET_DATA_TIMEOUT;
-//			return false;
-//	 }
-//	*(pstat->pdata) = 'H';
-//	/* handshake step 1: 'h'<-->'h' */
-//	length = send(tcp_socket,(char*)pstat->pdata,1,0);
-//	if (length >= 0)
-//	{
-//		//ret = select(tcp_socket+1, &fdread, NULL, NULL, &rev_timeout);
-//		if (Is_recv_ready() == false)
-//		{
-//			pstat->error = SOCKET_DATA_TIMEOUT;
-//				return false;
-//		}
-//		length= recv(tcp_socket,(char*)pstat->pdata,BufLen,0);
-//        if (length >= 0)
-//		{
-//			printf("sec_recvdata:%c,%d\n",*(pstat->pdata),length);
-//			//pstat->cmd_stat= PSTAT_DATA;
-//		 }
-//		else
-//		{
-//			printf("receive error!\n");
-//			pstat->error = SOCKET_DATA_TIMEOUT;
-//			return false;
-//		}
-//	}
-//	else /* error occured */
-//	{
-//	    printf("send error!\n");
-//		pstat->error = SOCKET_DATA_TIMEOUT;
-//		return false;
-//	}
-//	return true;
-//
 //}
 /* update_data: update data using wifi packet */
 bool update_data(struct dev_info *pdi, struct protocol_stat *pstat){
@@ -503,22 +433,7 @@ bool update_data(struct dev_info *pdi, struct protocol_stat *pstat){
 		}
 		auto finish = high_resolution_clock::now();
 		totaltime = duration_cast<microseconds>(finish - start).count() / 1000.0;
-		OutputDebugPrintf("send used:%f ms\n", totaltime);
-		/*//回应帧，暂时取消
-		if (Is_send_ready() == false)
-		{
-		pstat->error = SOCKET_DATA_TIMEOUT;
-		return false;
-		}
-		cmd = 'A';
-		length = send(tcp_socket,&cmd,1,0);
-		if (length < 0)
-		{
-		printf("send error!\n");
-		pstat->error = SOCKET_DATA_TIMEOUT;
-		return false;
-		}
-		*/
+		DebugInfo("send used:%f ms\n", totaltime);
 	}
 	else /* error occured */
 	{
@@ -526,12 +441,11 @@ bool update_data(struct dev_info *pdi, struct protocol_stat *pstat){
 		pstat->error = SOCKET_DATA_TIMEOUT;
 		return false;
 	}
-	update_cbuffer(pdi, pstat);
-	return true;
+	return update_cbuffer(pdi, pstat);
 }
 /* update_cbuffer: update data into buffer */
-void update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
-	int i;
+bool update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
+    int i;
 	bool ret = false;
 	unsigned char *pdata = pstat->pdata;
 	unsigned int size;
@@ -539,8 +453,6 @@ void update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
 	//unsigned char index_temp;
 
 	assert(pdi != NULL);
-	assert(pstat != NULL);
-	assert(pstat->pdata != NULL);
 
 	pdata +=1;
 	size = (*pdata << 8) + *(pdata+1);
@@ -552,34 +464,39 @@ void update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
 	spi_stat[0] = pdata[0];
 	spi_stat[1] = pdata[1];
 	pdata += 2;
+    // TODO size不够也会是一个坑
 	while (size > 0)
 	{
 		switch (*pdata)
 		{
 
-		case 0x11:
-			//if(size<SIZE_PACKET_FLL_DATA)
-			//{
-			//data_mutex.unlock();
-			//return;
-			//}
+		case 0x11: // sEMG 数据
 			pdata += 1;
 			//use a flexible way to match the channel
-			for (i=0; i < pdi->channel_num; i++)
-			if ( pcbuffer[i]->channel_id == *pdata)//find the channel id
-			{
-				//printf("channel_id:%d\n",i);
-				break;
-			}
+            if (*pdata >= pdi->channel_num) {
+                DebugError("data parse 0x11 error\n");
+                goto err;
+            }
+            i = *pdata;
 			//	printf("addr num:%d, id : %d\n",i, pcbuffer[i]->channel_id);
 			pdata += 1;
 			pdata += 1;//state
 			size -= 3;
-			parse_data(pdata, pcbuffer[i], pcbuffer[i]->channel_id);
+            if(size < 200)
+            {
+                DebugError("sEMG size < 200\n");
+                goto err;
+            }
+			parse_data(pdata, pcbuffer[i], i);
 			pdata += 200;
 			size -= 200;
 			break;
-		case 0x12:
+		case 0x12: // motion sensor 数据
+            if (size < 92) {
+                DebugError("motion sensor size < 92\n");
+                goto err;
+
+            }
 			pdata += 92;
 			size -= 92;
 			break;
@@ -589,19 +506,22 @@ void update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
 			size -= 1;
 			break;
 		default:
-			printf("padta error!size:%d\n",size);
+            DebugError("padta error!size:%d\n",size);
 			pdata += 1;
 			size -= 1;
 			timestamp --;//减一有问题
 			//遇到不能解释的字节就立刻返回,时间戳减1，可视作该包丢失
-			data_mutex.unlock();
-			return;
-			break;
+            goto err;
 		}
 	}
 	data_mutex.unlock();
 	if(notify_data != NULL)
 		notify_data();
+    return true;
+err:
+    pstat->error = SOCKET_DATA_WRONG;
+    data_mutex.unlock();
+    return false;
 }
 /* parse_data: parse datapacket*/
 void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num){
@@ -711,9 +631,10 @@ bool error_handler(struct protocol_stat *pstat)
 	return true;
 	}*/
 	//TODO ddd
-	return false;//templly not deal with
+	return false;//templly not deal with,反正上层会重启的 而且目前错误状态机制可能不完备
 
-	if (pstat->error == SOCKET_DATA_TIMEOUT || pstat->error == SOCKET_CONNECT_TIMEOUT)
+	if (pstat->error == SOCKET_DATA_TIMEOUT || pstat->error == SOCKET_CONNECT_TIMEOUT
+            || pstat->error == SOCKET_DATA_WRONG)
 	{
 		/*pstat->inquire++;
 		if (pstat->inquire >= TIMES_TO_INQUIRE)
@@ -727,7 +648,7 @@ bool error_handler(struct protocol_stat *pstat)
 #ifdef IN_WINDOWS
 		WSACleanup();   //释放套接字资源;
 #endif
-		std::this_thread::sleep_for(seconds{ 3 });
+		std::this_thread::sleep_for(seconds{ 2 });
 		return true;
 	}
 	if (pstat->error == SOCKET_INIT_ERROR)

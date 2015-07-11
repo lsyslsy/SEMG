@@ -115,7 +115,7 @@ bool init_socket(struct dev_info *pdi,struct protocol_stat *pstat);
 bool protocol_handler(struct dev_info *pdi, bool *prun);
 bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat);
 bool update_data(struct dev_info *pdi, struct protocol_stat *pstat);
-void update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat);
+bool update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat);
 void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num);
 bool Is_connect_ready(void);
 bool Is_send_ready(void);
