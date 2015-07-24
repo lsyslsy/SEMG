@@ -57,101 +57,77 @@ void  process(void *parameter)
 	struct branch *bx;
 	unsigned char *pbuf;
 	while (1) {
-
-	// SEMG data process
-	for (i= 0; i< SEMG_NUM; i++) {
-		if (branches[i].is_connected == FALSE)
-			continue;
 	 	job = queue_get(&semg_queue);
-	 	branch_num = job->branch_num;
- 		if (job->type != 1 || branch_num != i) {
- 			DebugError("fatal error occur, semg branch turn not as expected\n");
- 			exit(1);
- 		}
- 		pbuf = semg_recv_buf[branch_num];
-		bx = &branches[branch_num];
 
- 		// data parse
- 		int tmp = ParseSemgDataPacket(pbuf, branch_num);
-		if (tmp == 0) {
-			print_data(pbuf, branch_num);
-			//Data verified, then copy to socket
-			memcpy(bx->data_pool, pbuf, SEMG_FRAME_SIZE);
-		} else {
-			/***********************tmp*****************/
-			bx->data_pool[0] = 0xee; //data error
-			DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
-					branch_num, tmp);
-			DebugWarn("read:%d,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
-					pbuf[3], pbuf[3256]);
-		}
+		if (job->type == 1) { // SEMG data process
+		 	branch_num = job->branch_num;
+	 		pbuf = semg_recv_buf[branch_num];
+			bx = &branches[branch_num];
 
-		// signal process
+	 		// data parse
+	 		int tmp = ParseSemgDataPacket(pbuf, branch_num);
+			if (tmp == 0) {
+				print_data(pbuf, branch_num);
+				//Data verified, then copy to socket
+				memcpy(bx->data_pool, pbuf, SEMG_FRAME_SIZE);
+			} else {
+				/***********************tmp*****************/
+				bx->data_pool[0] = 0xee; //data error
+				DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
+						branch_num, tmp);
+				DebugWarn("read:%d,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
+						pbuf[3], pbuf[3256]);
+			}
 
-		// data compress
+			// signal process
 
-		// data pack
-		// NOTE: 边打包边发送会有竞争问题,不过经过分析后，情况出现概率小，只有当网速特别慢时
-		if(semg_pool[branch_num][0] == 0x48)
-			sendbuff[0] = 0x48;
-		if(semg_pool[branch_num][0] == 0xee)
-			sendbuff[1] = pbuf[1] | 0x01 << branch_num;
+			// data compress
 
-		///##数据包出错改怎么处理##////
-		memcpy(sendbuff + 7 +branch_num * SEMG_DATA_SIZE,
-			&semg_pool[branch_num][SEMG_HEADER_SIZE], SEMG_DATA_SIZE);
- 	}
+			// data pack
+			// NOTE: 边打包边发送会有竞争问题,不过经过分析后，情况出现概率小，只有当网速特别慢时
+			if(semg_pool[branch_num][0] == 0x48)
+				sendbuff[0] = 0x48;
+			if(semg_pool[branch_num][0] == 0xee)
+				sendbuff[1] = pbuf[1] | 0x01 << branch_num;
 
- 	// motion sensor data
-	for (i = SEMG_NUM; i< BRANCH_NUM; i++) {
-		if (branches[i].is_connected == FALSE)
-			continue;
-	 	job = queue_get(&semg_queue);
-	 	branch_num = job->branch_num;
- 		if (job->type != 2 || branch_num != i) {
- 			DebugError("fatal error occur, sensor branch turn not as expected\n");
- 			exit(1);
- 		}
- 		pbuf = sensor_recv_buf[branch_num - SEMG_NUM];
-		bx = &branches[branch_num];
+			///##数据包出错改怎么处理##////
+			memcpy(sendbuff + 7 +branch_num * SEMG_DATA_SIZE,
+				&semg_pool[branch_num][SEMG_HEADER_SIZE], SEMG_DATA_SIZE);
+	 	} else if (job->type == 2) { // motion sensor data
+		 	branch_num = job->branch_num;
+	 		pbuf = sensor_recv_buf[branch_num - SEMG_NUM];
+			bx = &branches[branch_num];
 
- 		// data parse
- 		int tmp = ParseSensorDataPacket(pbuf, branch_num);
-		if (tmp == 0) {
-			print_data(pbuf, branch_num);
-		} else {
-			DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
-					branch_num, tmp);
-			DebugWarn("read:%d,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
-					pbuf[3], pbuf[4]);
-		}
+	 		// data parse
+	 		int tmp = ParseSensorDataPacket(pbuf, branch_num);
+			if (tmp == 0) {
+				print_data(pbuf, branch_num);
+			} else {
+				DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
+						branch_num, tmp);
+				DebugWarn("read:%d,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
+						pbuf[3], pbuf[4]);
+			}
 
-		// data pack
-		// if(data_pool[branch_num][0] == 0x48)
-		// 	sendbuff[0] = 0x48;
-		// if(data_pool[branch_num][0] == 0xee)
-		// 	sendbuff[1] = pbuf[1] | 0x01 << branch_num;
+			// data pack
+			// if(data_pool[branch_num][0] == 0x48)
+			// 	sendbuff[0] = 0x48;
+			// if(data_pool[branch_num][0] == 0xee)
+			// 	sendbuff[1] = pbuf[1] | 0x01 << branch_num;
 
-		///##数据包出错改怎么处理##////
-		memcpy(sendbuff + 7 + SEMG_NUM * SEMG_DATA_SIZE + (branch_num - SEMG_NUM) * SENSOR_DATA_SIZE,
-			&sensor_pool[branch_num - SEMG_NUM][SENSOR_HEADER_SIZE], SENSOR_DATA_SIZE);
- 	}
- 	//else if (job->type == 2) {
-
- 	// } else {
- 	// 	DebugError();
- 	// 	exit(1);
- 	// }
- 	// start to send data
- 	// NOTE: 可能有竞争，打包和发送
- 	// 发送消息给socket线程，
- 	pthread_mutex_lock(&mutex_send);
-	send_ready = 1;
-	pthread_cond_signal(&cond_send);
- 	pthread_mutex_unlock(&mutex_send);
-
- 	// motion sensor process
- }
+			///##数据包出错改怎么处理##////
+			memcpy(sendbuff + 7 + SEMG_NUM * SEMG_DATA_SIZE + (branch_num - SEMG_NUM) * SENSOR_DATA_SIZE,
+				&sensor_pool[branch_num - SEMG_NUM][SENSOR_HEADER_SIZE], SENSOR_DATA_SIZE);
+	 	} else { // 读完一个循环了
+	 		// start to send data
+		 	// NOTE: 可能有竞争，打包和发送
+		 	// 发送消息给socket线程，
+		 	pthread_mutex_lock(&mutex_send);
+			send_ready = 1;
+			pthread_cond_signal(&cond_send);
+		 	pthread_mutex_unlock(&mutex_send);
+	 	}
+	}  // while(1)
 
 }
 

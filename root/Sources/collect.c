@@ -130,7 +130,8 @@ void FunBranch(void* parameter)
 			// send message to processer
 			// 通过邮箱容量比如为2或3，来判断是否满确定处理是否来得及
 		}
-
+		// 3 代表一帧读完了
+		queue_put(&semg_queue, 3, 0);
 		// motion sensor process
 
 		//

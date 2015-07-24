@@ -23,6 +23,7 @@
 #include "../Headers/semg_debug.h"
 
 extern pthread_cond_t cond_tick;
+extern struct branch branches[BRANCH_NUM];
 
 unsigned int PORT = SOCKET_PORT;
 unsigned char shakehand_buffer[SHAKEHAND_SIZE];
@@ -157,6 +158,8 @@ out1:
 int send_task(int connsock, char cmd)
 {
 	int ret = -1;
+	unsigned char tmp = 0;
+	int i = 0;
 	switch (cmd)
 	{
 	case HAND_SHAKE:
@@ -173,7 +176,11 @@ int send_task(int connsock, char cmd)
 		sendbuff[3] = (TimeStamp >> 8) & 0x00FF;
 		sendbuff[4] = TimeStamp & 0x00FF;
 		sendbuff[5] = 0; // state High
-		sendbuff[6] = 0; // state Low
+		for (i = 0; i < 8; i++) {
+			if (branches[i].is_connected == FALSE)
+				tmp |= 0x01 << i;
+		}
+		sendbuff[6] = tmp; // state Low
 		send_size = 26360;
 		sendbuff[1] = (send_size >> 8) & 0x00FF;
 		sendbuff[2] = send_size & 0x00FF;

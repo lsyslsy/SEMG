@@ -49,9 +49,7 @@ void open_dev()
     const char *ip = "10.13.89.24";
 
     int sampleRate = -1;
-    // 注意该回调函数将直接于采集线程中执行，所以不应处理复杂任务，
-    // 推荐只读取数据，并通知其他线程进行数据处理
-    set_data_notify(read_dev);
+
     ret = sEMG_open(true, ip, 0); // 1代表阻塞地等待semg设备打开
     if (ret) {
         usingChannelNum = get_channel_num(); // 获取通道数，应为128
@@ -61,6 +59,9 @@ void open_dev()
             return;
         }
         sampleRate = get_AD_rate(); // 单位为kps
+        // 注意该回调函数将直接于采集线程中执行，所以不应处理复杂任务，
+        // 推荐只读取数据，并通知其他线程进行数据处理
+        set_data_notify(read_dev);
     } else {
         sEMG_close();
     }
