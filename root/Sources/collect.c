@@ -30,8 +30,8 @@
 
 extern struct root root_dev;
 extern struct branch branches[BRANCH_NUM];
-extern unsigned char semg_pool[SEMG_NUM][SEMG_FRAME_SIZE];
-extern unsigned char sensor_pool[SENSOR_NUM][SENSOR_FRAME_SIZE];
+extern unsigned char semg_pool[SEMG_NUM][4000];
+extern unsigned char sensor_pool[SENSOR_NUM][200];
 
 
 extern pthread_mutex_t mutex_tick;
@@ -39,8 +39,8 @@ extern pthread_cond_t cond_tick;
 extern int capture_state; // 0:start, 1:processing, 2:finish
 extern struct work_queue semg_queue;
 
-unsigned char semg_recv_buf[SEMG_NUM][SEMG_FRAME_SIZE]={{0}};
-unsigned char sensor_recv_buf[SENSOR_NUM][SENSOR_FRAME_SIZE]={{0}};
+unsigned char semg_recv_buf[SEMG_NUM][4000]={{0}};
+unsigned char sensor_recv_buf[SENSOR_NUM][200]={{0}};
 
 
 
@@ -163,7 +163,7 @@ static void SemgDataInit(unsigned char *recvbuf,int bn)
 		*p = i + bn * CHANNEL_NUM_OF_SEMG;
 		p++;
 		p++;//skip the state
-		for (j = 0; j < 200; j++)
+		for (j = 0; j < CHANNEL_DATA_SIZE; j++)
 		{
 			p++;
 		}
@@ -205,15 +205,15 @@ void moni_data(unsigned char *pbuf, int channel_num, int branch_num, unsigned in
 		//if ( j == 10 || j==9)
 		//if (j % 2)
 		{
-			for (i = 0; i < 100; i++)
+			for (i = 0; i < root_dev.period; i++)
 			{
 				// *(pbuf + 2 + i) = tbuf[i%20];
-				fsin_to_char(i*1.0/ 100,buf);//sin(2*i * PI / *period), buf);
+				fsin_to_char(i*1.0/100,buf);//sin(2*i * PI / *period), buf);
 				*(pbuf + 2 + i * 2) = buf[1];
 				*(pbuf + 2 + i * 2 + 1) = buf[0];
 			}
 		}
-		pbuf += 203;
+		pbuf += CHANNEL_BUF_SIZE;
 	}
 	*test_count = 1;
 

@@ -18,11 +18,12 @@
 //#define CHANNEL_USED_NUM        ( BRANCH_USED_NUM*CHANNEL_NUM_OF_BRANCH  ) //总的采集通道数
 #define CHANNEL_NUM        ( SEMG_NUM*CHANNEL_NUM_OF_SEMG  ) //总的采集通道数
 #define MAX_CHANNEL_NUM         128 //最大采集通道数
-#define CHANNEL_BUF_SIZE          203 //1byte(0x01)+1byte(channel number)+1byte(state)+200bytes(100ms data 2*100)
-#define SEMG_DATA_SIZE         ( CHANNEL_BUF_SIZE*CHANNEL_NUM_OF_SEMG )
+extern unsigned int CHANNEL_DATA_SIZE;
+extern unsigned int CHANNEL_BUF_SIZE;          //203 //1byte(0x01)+1byte(channel number)+1byte(state)+200bytes(100ms data 2*100)
+extern unsigned int SEMG_DATA_SIZE;         //( CHANNEL_BUF_SIZE*CHANNEL_NUM_OF_SEMG )
 #define SEMG_HEADER_SIZE      9
 #define SEMG_TAIL_SIZE      1
-#define SEMG_FRAME_SIZE              (SEMG_HEADER_SIZE + SEMG_DATA_SIZE + SEMG_TAIL_SIZE)
+extern unsigned int SEMG_FRAME_SIZE;              //(SEMG_HEADER_SIZE + SEMG_DATA_SIZE + SEMG_TAIL_SIZE)
 
 
 // Motion Sensor related
@@ -47,6 +48,7 @@ struct root {
         unsigned char channel_num; //total channel num
         unsigned char AD_rate;
         unsigned char connected_branches_count;
+        unsigned char period;
 };
 
 /*branch struct definiton*/

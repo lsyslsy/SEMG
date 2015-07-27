@@ -18,10 +18,10 @@
 #include "../Headers/socket.h"
 #include "../Headers/process.h"
 
-extern unsigned char semg_recv_buf[SEMG_NUM][SEMG_FRAME_SIZE];
-extern unsigned char sensor_recv_buf[SENSOR_NUM][SENSOR_FRAME_SIZE];
-extern unsigned char semg_pool[SEMG_NUM][SEMG_FRAME_SIZE];
-extern unsigned char sensor_pool[SENSOR_NUM][SENSOR_FRAME_SIZE];
+extern unsigned char semg_recv_buf[SEMG_NUM][4000];
+extern unsigned char sensor_recv_buf[SENSOR_NUM][200];
+extern unsigned char semg_pool[SEMG_NUM][4000];
+extern unsigned char sensor_pool[SENSOR_NUM][200];
 extern unsigned char sendbuff[MAX_TURN_BYTE];
 extern unsigned int send_ready; // 0: not ready, 1: ready
 extern pthread_mutex_t mutex_send;
@@ -76,7 +76,7 @@ void  process(void *parameter)
 				DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
 						branch_num, tmp);
 				DebugWarn("read:%d,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
-						pbuf[3], pbuf[3256]);
+						pbuf[3], pbuf[SEMG_FRAME_SIZE-2]);
 			}
 
 			// signal process
@@ -159,7 +159,7 @@ static int ParseSemgDataPacket(unsigned char *p, int n)
 			count++;
 		p++;
 		p++;//skip the state
-		for (j = 0; j < 200; j++)
+		for (j = 0; j < CHANNEL_DATA_SIZE; j++)
 		{
 			//	if(*p != j) count++;
 			p++;

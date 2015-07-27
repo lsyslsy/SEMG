@@ -80,13 +80,13 @@ int sync()
         exit(1);
     }
     // set timer delay = expected fn - current + 5
-    expire = (expected_fn + 1030 - current_fn) % 1024;
-    expire = expire * 1000000;
+    expire = (expected_fn + 1028 - current_fn) % 1024;
+    expire = expire * 1000000; // 转成纳秒
     its.it_value.tv_sec = expire / 1000000000;
     its.it_value.tv_nsec = expire % 1000000000;
     its.it_interval.tv_sec = 0;
     its.it_interval.tv_nsec = 0;
-    if ((expire/1000000) < 60) {  // 处理来不及
+    if ((expire/1000000) < root_dev.period/2) {  // 处理来不及
         DebugError("not enough time to process, skip this turn\n");
         retval = -2;
     }

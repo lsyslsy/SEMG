@@ -48,7 +48,7 @@ enum DATA_PACKET_CLASS {
 };
 void FunSocket_hander(void *arg);
 void FunSocket();
-int send_task(int connsock, char cmd);
+int send_task(int connsock, unsigned char *cmd);
 void data_packet(unsigned char *pbuf, unsigned int *psize);
 void print_socket_info(int socketfd);
 void socket_init();

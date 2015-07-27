@@ -30,26 +30,36 @@ extern pthread_mutex_t mutex_send;
 extern pthread_cond_t cond_send;
 extern pthread_mutex_t mutex_tick;
 extern pthread_cond_t cond_tick;
+extern pthread_mutex_t mutex_conf;
+extern pthread_cond_t cond_conf;
+extern unsigned int is_configured;
 
 struct root root_dev;
 struct branch branches[BRANCH_NUM] = {{0}}; //
-unsigned char semg_pool[SEMG_NUM][SEMG_FRAME_SIZE] = {{0}}; // semg data pool
-unsigned char sensor_pool[SENSOR_NUM][SENSOR_FRAME_SIZE] = {{0}};
+unsigned char semg_pool[SEMG_NUM][4000] = {{0}}; // semg data pool
+unsigned char sensor_pool[SENSOR_NUM][200] = {{0}};
+unsigned int CHANNEL_DATA_SIZE = 0;
+unsigned int CHANNEL_BUF_SIZE = 0;
+unsigned int SEMG_DATA_SIZE = 0;
+unsigned int SEMG_FRAME_SIZE = 0;
 
-
-unsigned int active_branch_count = 0;
+int active_branch_count = 0;
 //init the root status
 int root_init(void)
 {
 	root_dev.version = ROOT_VERSION;
 	root_dev.channel_num = CHANNEL_NUM;
 	root_dev.AD_rate = RATE_1K;
+	root_dev.period = 0;
 
 	pthread_mutex_init(&mutex_tick, NULL);
 	pthread_cond_init(&cond_tick, NULL);
 
 	pthread_mutex_init(&mutex_send, NULL);
 	pthread_cond_init(&cond_send, NULL);
+
+	pthread_mutex_init(&mutex_conf, NULL);
+	pthread_cond_init(&cond_conf, NULL);
 
 	return 0;
 }//root_init()
@@ -59,10 +69,9 @@ int root_init(void)
  */
 void branch_init()
 {
-	int i, retval, err;
+	int i, err;
 	int fd;
 	int n;
-	int current_fn = 22222;
 	char 			strbuf[20] ={0};
 	memset(branches, 0, sizeof(branches));
 
@@ -127,6 +136,33 @@ void branch_init()
 		exit(EXIT_FAILURE);
 	}
 
+}//branch_init()
+
+// 配置branch，周期，期望帧号，大小
+void branch_config()
+{
+	int i, retval;
+	int current_fn = 22222;
+
+	for (i = 0; i < SEMG_NUM; i++) {
+		branches[i].size = SEMG_FRAME_SIZE;
+	}
+	// 设置通信周期
+	// 不大可能会失败，就不get比对了
+	for (i = 0; i < BRANCH_NUM; i++) {
+		if (branches[i].is_connected == FALSE)
+			continue;
+
+		retval = ioctl(branches[i].devfd, USB_SEMG_SET_SAMPLEPERIOD, root_dev.period);
+		if (retval < 0) {
+			branches[i].is_connected = FALSE;
+			active_branch_count--;
+			DebugError("branches%d ioctl: set period failed\n", i);
+			continue;
+		}
+	}
+
+
 	// 找到8个里面current最大的那个,并加500ms,作为1次同步过程
 
 	for (i = 0; i < BRANCH_NUM; i++) {
@@ -182,12 +218,7 @@ void branch_init()
 		DebugError("no branches valid after ioctls\n");
 		exit(EXIT_FAILURE);
 	}
-
-
-	//TODOO   要动态的查找(通过和下位机的通信)对应number的device,并赋值给.device,
-
-
-}//branch_init()
+}
 
 void show_thread_priority(pthread_attr_t *attr, int policy)
 {
@@ -237,8 +268,9 @@ int main()
 		DebugError("process_init failed!\n");
 		exit(EXIT_FAILURE);
 	}
+
 	branch_init(); //8 branch init
-	socket_init();
+
 	//SCHED_FIFO适合于实时进程，它们对时间性要求比较强，而每次运行所需要的时间比较短。
 	//一旦这种进程被调度开始运行后，就要一直运行直到自愿让出CPU或者被优先权更高的进程抢占其执行权为止，没有时间片概念。
 	//SCHED_RR对应“时间片轮转法”，适合于每次运行需要较长时间的实时进程。
@@ -250,6 +282,24 @@ int main()
 	pthread_attr_setschedpolicy(&thread_attr, SCHED_RR);
 	//必需设置inher的属性为 PTHREAD_EXPLICIT_SCHED，否则设置线程的优先级会被忽略
 	pthread_attr_setinheritsched(&thread_attr, PTHREAD_EXPLICIT_SCHED);
+
+	// coummunication thread
+	param.sched_priority = 15;
+	pthread_attr_setschedparam(&thread_attr, &param);
+	if( pthread_create(&p_socket, &thread_attr, (void *) FunSocket, NULL)) {
+		perror("Create socket thread branch error");
+		exit(EXIT_FAILURE);
+	}
+	DebugInfo("Create socket thread branch, tid:%lu\n", p_socket);
+
+	// 等到上位机发初始化命令
+	pthread_mutex_lock(&mutex_conf);
+	while (is_configured == 0) // wait for start
+		pthread_cond_wait(&cond_conf, &mutex_conf);
+	pthread_mutex_unlock(&mutex_conf);
+	socket_init();
+	branch_config();
+
 
 	// branch thread
 	param.sched_priority = 20;
@@ -271,14 +321,7 @@ int main()
 	DebugInfo("Create process thread branch, tid:%lu\n", p_process);
 	usleep(100000); // 100ms
 
-	// coummunication thread
-	param.sched_priority = 15;
-	pthread_attr_setschedparam(&thread_attr, &param);
-	if( pthread_create(&p_socket, &thread_attr, (void *) FunSocket, NULL)) {
-		perror("Create socket thread branch error");
-		exit(EXIT_FAILURE);
-	}
-	DebugInfo("Create socket thread branch, tid:%lu\n", p_socket);
+
 
 	pthread_attr_destroy(&thread_attr);
 

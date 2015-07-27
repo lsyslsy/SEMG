@@ -34,6 +34,9 @@ unsigned int TimeStamp;
 unsigned int send_ready = 0; // 0: not ready, 1: ready
 pthread_mutex_t mutex_send;
 pthread_cond_t cond_send;
+pthread_mutex_t mutex_conf;
+pthread_cond_t cond_conf;
+unsigned int is_configured = 0; // 是否已经配置过周期
 
 /**
  * Init socket
@@ -41,14 +44,14 @@ pthread_cond_t cond_send;
 void socket_init()
 {
 	int i;
-	for (i = 0; i < 128; i++) {
-		sendbuff[7 + i * 203] = 0x11;
-		sendbuff[8 + i * 203] = i;
+	for (i = 0; i < MAX_CHANNEL_NUM; i++) {
+		sendbuff[7 + i * CHANNEL_BUF_SIZE ] = 0x11;
+		sendbuff[8 + i * CHANNEL_BUF_SIZE ] = i;
 	}
 
-	for (i = 0; i < 4; i++) {
-		sendbuff[25991 + i * 92] = 0x12;
-		sendbuff[25992 + i * 92] = i + 8;
+	for (i = 0; i < SENSOR_NUM ; i++) {
+		sendbuff[7 + CHANNEL_NUM * CHANNEL_BUF_SIZE + i * SENSOR_DATA_SIZE] = 0x12;
+		sendbuff[8 + CHANNEL_NUM * CHANNEL_BUF_SIZE + i * SENSOR_DATA_SIZE] = i + 8;
 	}
 }
 
@@ -60,7 +63,7 @@ void socket_init()
 void FunSocket()
 {
 	unsigned long tick = 0;
-	char cmd;
+	unsigned char cmd[2];
 	int err = -1;
 	int length;
 	int listensock, connsock;
@@ -108,16 +111,11 @@ void FunSocket()
 		}
 		while (1)
 		{
-		 	pthread_mutex_lock(&mutex_send);
-	 		while (send_ready != 1)
-	 			pthread_cond_wait(&cond_send, &mutex_send);
-	 		send_ready = 0;
-	 		pthread_mutex_unlock(&mutex_send);
+
 			//DebugInfo("socket thread is running!%ld\n", tick++);
 			// TODO: check sync 8 branches
-			// wait for message from processer
 
-			length = recv(connsock, &cmd, 1, 0);
+			length = recv(connsock, cmd, 2, MSG_WAITALL);
 
 			if (length <= 0)
 			{
@@ -155,12 +153,12 @@ out1:
  *@param cmd: client command
  *@return the send data length if succeed, else return SOCKET_ERROR = -1
  **/
-int send_task(int connsock, char cmd)
+int send_task(int connsock, unsigned char *cmd)
 {
 	int ret = -1;
 	unsigned char tmp = 0;
 	int i = 0;
-	switch (cmd)
+	switch (*cmd)
 	{
 	case HAND_SHAKE:
 		sendbuff[0] = RE_HAND_SHAKE;
@@ -168,9 +166,33 @@ int send_task(int connsock, char cmd)
 		sendbuff[2] = root_dev.version & 0x00FF;
 		sendbuff[3] = root_dev.channel_num;
 		sendbuff[4] = root_dev.AD_rate;
-		ret = send(connsock, sendbuff, SHAKEHAND_SIZE, 0);
+		sendbuff[5] = *(cmd+1);
+		ret = send(connsock, sendbuff, 6, 0);
+
+		if (root_dev.period == 0) { // 防止再次握手出现问题
+			// if ((cmd+1) == 100||80||50)
+			DebugInfo("set period as %d \n", *(cmd+1));
+			root_dev.period = 100;//*(cmd+1);
+			CHANNEL_DATA_SIZE = root_dev.period * 2;
+			CHANNEL_BUF_SIZE = CHANNEL_DATA_SIZE + 3;
+			SEMG_DATA_SIZE = CHANNEL_BUF_SIZE*CHANNEL_NUM_OF_SEMG;
+			SEMG_FRAME_SIZE = SEMG_HEADER_SIZE + SEMG_DATA_SIZE + SEMG_TAIL_SIZE;
+
+			pthread_mutex_lock(&mutex_conf);
+			is_configured = 1;
+			pthread_cond_signal(&cond_conf);
+			pthread_mutex_unlock(&mutex_conf);
+		}
+
 		break;
 	case DATA_REQUEST:
+		// wait for message from processer
+	 	pthread_mutex_lock(&mutex_send);
+ 		while (send_ready != 1)
+ 			pthread_cond_wait(&cond_send, &mutex_send);
+ 		send_ready = 0;
+ 		pthread_mutex_unlock(&mutex_send);
+
 		TimeStamp++;
 		sendbuff[0] = RE_DATA_REQUEST;
 		sendbuff[3] = (TimeStamp >> 8) & 0x00FF;
@@ -181,7 +203,7 @@ int send_task(int connsock, char cmd)
 				tmp |= 0x01 << i;
 		}
 		sendbuff[6] = tmp; // state Low
-		send_size = 26360;
+		send_size = 8 + CHANNEL_NUM * CHANNEL_BUF_SIZE + SENSOR_DATA_SIZE * SENSOR_NUM;
 		sendbuff[1] = (send_size >> 8) & 0x00FF;
 		sendbuff[2] = send_size & 0x00FF;
 		sendbuff[send_size -1 ] = DATA_END;
