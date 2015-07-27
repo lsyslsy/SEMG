@@ -27,18 +27,24 @@ extern std::mutex data_mutex;			/* for pcbuffer use */
 extern struct cyc_buffer *pcbuffer[MAX_CHANNEL_NUM];
 
 extern int Filter_Options;
+extern unsigned char g_period;
 extern void(*notify_data)(void);
 extern void do_nothing();
 
 // std::thread *com_thread;
 
-sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options)
+sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options, int period)
 {
 
 	unsigned int threadid;
 	bool ret = true;
 
 	Filter_Options = filter_options;
+	if (period < 40 || period > 100)
+		return false;
+	else
+		g_period = period;
+
 	strcpy(device.ip, ip);
 	//int filter_options
 	std::thread t1{ start_comu_thread, &threadid, &targs };
@@ -86,12 +92,12 @@ sEMGAPI bool  sEMG_close(void)
 	return true;
 }
 
-sEMGAPI bool  sEMG_reset(bool wait, char *ip, int filter_options)
+sEMGAPI bool  sEMG_reset(bool wait, char *ip, int filter_options, int period)
 {
 	if (!sEMG_close())
 		return false;
 	//init_dll();
-	return (sEMG_open(wait, ip, filter_options));
+	return (sEMG_open(wait, ip, filter_options, period));
 }
 
 

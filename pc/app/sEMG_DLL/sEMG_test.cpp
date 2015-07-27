@@ -46,11 +46,11 @@ void read_dev()
 void open_dev()
 {
     bool ret;
-    const char *ip = "10.13.89.24";
+    const char *ip = "192.168.31.123";
 
     int sampleRate = -1;
 
-    ret = sEMG_open(true, ip, 0); // 1代表阻塞地等待semg设备打开
+    ret = sEMG_open(true, ip, 0, 100); // 1代表阻塞地等待semg设备打开
     if (ret) {
         usingChannelNum = get_channel_num(); // 获取通道数，应为128
         printf("[TEST]: channel num: %d\n", usingChannelNum);

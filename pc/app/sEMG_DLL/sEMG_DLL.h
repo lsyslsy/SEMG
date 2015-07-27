@@ -22,9 +22,10 @@
  * Open sEMG device, start the auxiliary thread.
  * @param[in] wait: if TRUE wait untill open the device,else return immediately.
  * @param[in] ip The device ip address.
+ * @param[in] period The Communication Period
  * @return TRUE if operation is successful,else return FALSE.
  */
-sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options);
+sEMGAPI bool  sEMG_open(bool wait, const char *ip, int filter_options, int period);
 
 /**
  * Close SEMG device.
@@ -37,7 +38,7 @@ sEMGAPI bool  sEMG_close(void);
  * @param[in] wait the parameter used to call wmsdas_open.
  * @return  TRUE if operation successful, else returns FALSE.
  */
-sEMGAPI bool  sEMG_reset(bool wait, char *ip, int filter_options);
+sEMGAPI bool  sEMG_reset(bool wait, char *ip, int filter_options, int period);
 
 /**
  * Read dll info.

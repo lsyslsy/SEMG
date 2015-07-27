@@ -74,6 +74,7 @@ Butterworth_4order BwFilters[MAX_CHANNEL_NUM];
 double BaseLine_bias[MAX_CHANNEL_NUM] = { 0 };
 //int baseline_option = 0;	//<! 基线漂移的选项
 int Filter_Options = 0;		//<! 滤波选项，包括50Hz和基线漂移
+unsigned char g_period = 100; //<! 通信周期
 struct dev_info device;
 void(*notify_data)(void) = NULL;
 void do_nothing(){}
@@ -290,7 +291,7 @@ bool init_socket(struct dev_info *pdi, struct protocol_stat *pstat)
 bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat)
 {
 	//int ret;
-	char cmd;
+	unsigned char cmd[2];
 	int length;
 #ifdef IN_WINDOWS
 	connect(tcp_socket, (LPSOCKADDR)&tcpAddr, sizeof(tcpAddr));
@@ -312,9 +313,10 @@ bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat)
 		pstat->error = SOCKET_DATA_TIMEOUT;
 		return false;
 	}
-	cmd = 'H';
+	cmd[0] = 'H';
+	cmd[1] = g_period;
 	/* handshake step 1: 'h'<-->'h' */
-	length = send(tcp_socket, &cmd, 1, 0);
+	length = send(tcp_socket, cmd, 2, 0);
 	if (length > 0) {
 		//ret = select(tcp_socket+1, &fdread, NULL, NULL, &rev_timeout);
 		if (Is_recv_ready() == false) {
@@ -337,6 +339,10 @@ bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat)
 			pdi->version = (*pd << 8) + *(pd + 1);
 			pdi->channel_num = *(pd + 2);
 			pdi->AD_rate = *(pd + 3);
+			if (*(pd+4) != g_period) {
+				DebugError("设置周期失败\n");
+				exit(1);
+			}
 			DebugInfo("version is %d\n", pdi->version);
 			pstat->cmd_stat = PSTAT_DATA;
 		} else {
@@ -350,6 +356,7 @@ bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat)
 		pstat->error = SOCKET_DATA_TIMEOUT;
 		return false;
 	}
+	std::this_thread::sleep_for(seconds{ 5 });
 	return true;
 }
 
@@ -358,7 +365,7 @@ bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat)
 bool update_data(struct dev_info *pdi, struct protocol_stat *pstat){
 
 	bool ret = false;
-	char cmd;
+	unsigned char cmd[2];
 
 	int length;
 	unsigned int temp_packet_size;
@@ -370,8 +377,9 @@ bool update_data(struct dev_info *pdi, struct protocol_stat *pstat){
 		pstat->error = SOCKET_DATA_TIMEOUT;
 		return false;
 	}
-	cmd = 'D';
-	length = send(tcp_socket, &cmd, 1, 0);
+	cmd[0] = 'D';
+	cmd[1] = 0;
+	length = send(tcp_socket, cmd, 2, 0);
 	//Sleep(90);//wait a while
 	if (length > 0) {
 		if (Is_recv_ready() == false) {
@@ -457,13 +465,13 @@ bool update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
 			pdata += 1;
 			pdata += 1;//state
 			size -= 3;
-			if (size < 200) {
-				DebugError("sEMG size < 200\n");
+			if (size < 2*g_period) {
+				DebugError("sEMG size < one period\n");
 				goto err;
 			}
 			parse_data(pdata, pcbuffer[i], i);
-			pdata += 200;
-			size -= 200;
+			pdata += 2*g_period;
+			size -= 2*g_period;
 			break;
 		case 0x12: // motion sensor 数据
 			if (size < 92) {
@@ -507,7 +515,7 @@ void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num){
 		pcb->valid_amount = CYCLICAL_BUFFER_SIZE;
 		//DebugWarn("data buffer overflow\n");
 	}
-	for (i = 0; i < POINT_NUM; i++) {
+	for (i = 0; i < g_period; i++) {
 		pcb->raw_data[pcb->header].point[i] = ((int16_t)((*pdata << 8) + *(pdata + 1))) * DATASCALE / (float)32768;
 		//pcb->data[pcb->header].point[i] = 1;
 		pdata += 2;
@@ -515,15 +523,15 @@ void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num){
 	}
 
 	if ((Filter_Options & 0x00ff) == FILTER_BUTTERWORTH)
-		Butterworth::filter(&BwFilters[num], pcb->raw_data[pcb->header].point, pcb->data[pcb->header].point, POINT_NUM);
+		Butterworth::filter(&BwFilters[num], pcb->raw_data[pcb->header].point, pcb->data[pcb->header].point, g_period);
 	else if ((Filter_Options & 0x00ff) == FILTER_RLS)
-		RLS::filter(&RlsFilters[num], pcb->raw_data[pcb->header].point, pcb->data[pcb->header].point, POINT_NUM);
+		RLS::filter(&RlsFilters[num], pcb->raw_data[pcb->header].point, pcb->data[pcb->header].point, g_period);
 	else if ((Filter_Options & 0x00ff) == FILTER_FOURIER)
-		FOURIER::filter(NULL, pcb->raw_data[pcb->header].point, pcb->data[pcb->header].point, POINT_NUM);
+		FOURIER::filter(NULL, pcb->raw_data[pcb->header].point, pcb->data[pcb->header].point, g_period);
 	else// if FILTER_NONE do nothing
-		memcpy(pcb->data[pcb->header].point, pcb->raw_data[pcb->header].point, POINT_NUM*sizeof(double));
+		memcpy(pcb->data[pcb->header].point, pcb->raw_data[pcb->header].point, g_period*sizeof(double));
 	if ((Filter_Options & 0xff00) == FILTER_BASELINE_YES)
-		Baseline_corrector::correct(BaseLine_bias + num, pcb->data[pcb->header].point, pcb->data[pcb->header].point, POINT_NUM);
+		Baseline_corrector::correct(BaseLine_bias + num, pcb->data[pcb->header].point, pcb->data[pcb->header].point, g_period);
 
 
 #ifdef DLL_DEBUG_MODE
