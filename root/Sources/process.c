@@ -75,8 +75,8 @@ void  process(void *parameter)
 				bx->data_pool[0] = 0xee; //data error
 				DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
 						branch_num, tmp);
-				DebugWarn("read:%d,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
-						pbuf[3], pbuf[SEMG_FRAME_SIZE-2]);
+				DebugWarn("read:%d,%x,%x,%x,%x,%x,%x\n", bx->size, pbuf[0], pbuf[1], pbuf[2],
+						pbuf[3], pbuf[9], pbuf[SEMG_FRAME_SIZE-1]);
 			}
 
 			// signal process

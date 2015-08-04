@@ -170,9 +170,13 @@ int send_task(int connsock, unsigned char *cmd)
 		ret = send(connsock, sendbuff, 6, 0);
 
 		if (root_dev.period == 0) { // 防止再次握手出现问题
-			// if ((cmd+1) == 100||80||50)
-			DebugInfo("set period as %d \n", *(cmd+1));
-			root_dev.period = 100;//*(cmd+1);
+			if (*(cmd+1) <= 100 && *(cmd+1) >=10 ) {
+				DebugInfo("set period as %d \n", *(cmd+1));
+				root_dev.period = *(cmd+1);
+			} else {
+				DebugError("set period as 100 when error %d \n", *(cmd+1));
+				root_dev.period = 100;
+			}
 			CHANNEL_DATA_SIZE = root_dev.period * 2;
 			CHANNEL_BUF_SIZE = CHANNEL_DATA_SIZE + 3;
 			SEMG_DATA_SIZE = CHANNEL_BUF_SIZE*CHANNEL_NUM_OF_SEMG;

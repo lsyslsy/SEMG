@@ -63,6 +63,8 @@ int main(int argc, char const *argv[])
 	// }
  	ret = ioctl(fd0, USB_SEMG_GET_BRANCH_NUM, NULL);
  	printf("ioctl get branchnum: %d\n", ret);
+ 	ret = ioctl(fd0, USB_SEMG_SET_SAMPLEPERIOD, 50);
+	printf("ioctl set period: %d\n", ret);
 
  	ret = ioctl(fd0, USB_SEMG_GET_CURRENT_FRAME_NUMBER, NULL);
 	printf("ioctl get current framenumber: %d\n", ret);

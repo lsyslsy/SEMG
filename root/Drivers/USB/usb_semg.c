@@ -464,6 +464,21 @@ static int set_expected_fn(struct file *filep, __u16 framenumber) {
 	return retval < 0 ? retval: 0;
 }
 
+static int set_sample_period(struct file *filep, __u16 T) {
+	int retval = 0;
+	struct usb_semg *dev = filep->private_data;
+	mutex_lock(&dev->io_mutex);
+	retval = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0), 0x61, 0x40, T, 0, 0, 0, 20);
+	if (retval < 0)
+		dev_err(&dev->interface->dev, "%s - set sample period failed: %d",
+				    __func__, retval);
+	// else
+	// 	dev_info(&dev->interface->dev, "%s -set expected framenumber, value:%d",
+	//			    __func__, framenumber);
+	mutex_unlock(&dev->io_mutex);
+	return retval < 0 ? retval: 0;
+}
+
 // get init state
 // 100 200 300 400
 static int get_init_state(struct file *filep) {
@@ -505,7 +520,10 @@ long semg_ioctl(struct file * filep, unsigned int cmd, unsigned long arg)
 			else
 				return set_delay(filep, (__u16)arg);
 		case USB_SEMG_SET_SAMPLEPERIOD:
-			break;
+			if (arg <= 10 || arg > 100)
+				return -EINVAL;
+			else
+				return set_sample_period(filep, (__u16)arg);
 		case USB_SEMG_GET_CURRENT_FRAME_NUMBER:
 			return usb_get_current_frame_number(dev->udev) & 0x03ff;
 		case USB_SEMG_GET_EXPECTED_FRAME_NUMBER:
