@@ -50,7 +50,7 @@ void open_dev()
 
     int sampleRate = -1;
 
-    ret = sEMG_open(true, ip, 0, 100); // 1代表阻塞地等待semg设备打开
+    ret = sEMG_open(true, ip, 0, 80); // 1代表阻塞地等待semg设备打开
     if (ret) {
         usingChannelNum = get_channel_num(); // 获取通道数，应为128
         printf("[TEST]: channel num: %d\n", usingChannelNum);
