@@ -24,6 +24,7 @@ pthread_mutex_t mutex_tick; // protect capture_state;
 int capture_state = 2; // // 0:start, 1:processing, 2:finish
 extern struct branch branches[BRANCH_NUM];
 timer_t timerid;
+struct itimerspec its;
 
 // ioctl 会和branch里面的read冲突?内核驱动里面已经加锁了啊
 // expected_fn:782, current_fn:688,expire: 100ms
@@ -34,23 +35,13 @@ timer_t timerid;
 // expected_fn:258, current_fn:164,expire: 100ms
 
 // TODO 有并发问题,但不大
-int sync()
+int mysync()
 {
     int retval = 0;
-    struct itimerspec its;
     int i;
     int expected_fn;
     int current_fn;
     unsigned long expire;
-
-    /* Stop the timer */
- //    its.it_value.tv_sec = 0;
- //    its.it_value.tv_nsec = 0;
- //
- //    if ((retval = timer_settime (timerid, 0, &its, NULL) == -1)) {
- //        perror("timer_settime1 error");
- //        return retval;
- //    }
 
     // get expected fn
     for (i = 0; i < BRANCH_NUM; i++) {
@@ -90,7 +81,7 @@ int sync()
         DebugError("not enough time to process, skip this turn\n");
         retval = -2;
     }
-    printf("expected_fn:%4d, current_fn:%4d,expire: %3ldms\n", expected_fn, current_fn, expire/1000000);
+    DebugWarn("expected_fn:%4d, current_fn:%4d,expire: %3ldms\n", expected_fn, current_fn, expire/1000000);
     if (timer_settime (timerid, 0, &its, NULL) == -1) {
         perror("timer_settime2 error");
         retval = -1;
@@ -101,7 +92,7 @@ int sync()
 
 void timeout_info(int signo)
 {
-    if (sync() < 0 ) // error or not enough time
+    if (mysync() < 0 ) // error or not enough time
         return;
 
     pthread_mutex_lock(&mutex_tick);
@@ -131,11 +122,7 @@ void init_sigaction(void)
      act.sa_flags   = 0;
      act.sa_flags |= SA_RESTART; // 让被中断的系统调用自动恢复
      sigemptyset(&act.sa_mask);
-#ifdef ARM_VERSION
-     sigaction(SIGIO, &act, NULL);
-#else
      sigaction(SIGUSR1, &act, NULL);
-#endif
 }
 
 /* init */

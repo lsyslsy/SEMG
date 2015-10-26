@@ -72,7 +72,7 @@ void FunSocket()
 	unsigned int clktck;
 
 	if((clktck = sysconf(_SC_CLK_TCK)) < 0)
-	perror("sysconf error");
+		perror("sysconf error");
 	if ((listensock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
 		perror("create socket error");

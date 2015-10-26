@@ -37,7 +37,7 @@ struct work_queue semg_queue;
 int process_init()
 {
 	int ret = 0;
-	if ((ret = queue_init(&semg_queue, 2))) {
+	if ((ret = queue_init(&semg_queue, 1))) {
 		return ret;
 	}
 	return ret;
@@ -67,11 +67,13 @@ void  process(void *parameter)
 	 		// data parse
 	 		int tmp = ParseSemgDataPacket(pbuf, branch_num);
 			if (tmp == 0) {
+#ifdef DEBUG_INFO
 				print_data(pbuf, branch_num);
+#endif
 				//Data verified, then copy to socket
 				memcpy(bx->data_pool, pbuf, SEMG_FRAME_SIZE);
 			} else {
-				/***********************tmp*****************/
+				
 				bx->data_pool[0] = 0xee; //data error
 				DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
 						branch_num, tmp);
@@ -101,7 +103,9 @@ void  process(void *parameter)
 	 		// data parse
 	 		int tmp = ParseSensorDataPacket(pbuf, branch_num);
 			if (tmp == 0) {
+#ifdef DEBUG_INFO
 				print_data(pbuf, branch_num);
+#endif
 			} else {
 				DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
 						branch_num, tmp);

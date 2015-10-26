@@ -116,12 +116,12 @@ void branch_init()
 		branches[n].is_connected = TRUE;
 		branches[n].devfd = fd;
 		active_branch_count++;
-		DebugInfo("binding semg-usb%d to branch %d\n", i, n);
+		DebugWarn("binding semg-usb%d to branch %d\n", i, n);
 
 	}
 
 	if (active_branch_count > 0)
-		DebugInfo("total %d branches valid\n", active_branch_count);
+		DebugWarn("total %d branches valid\n", active_branch_count);
 	else {
 		DebugError("no branches valid\n");
 		exit(EXIT_FAILURE);
@@ -177,7 +177,7 @@ void branch_init()
 	}
 
 	if (active_branch_count > 0)
-		DebugInfo("total %d branches valid\n", active_branch_count);
+		DebugWarn("total %d branches valid\n", active_branch_count);
 	else {
 		DebugError("no branches valid after ioctls\n");
 		exit(EXIT_FAILURE);

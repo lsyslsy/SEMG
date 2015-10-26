@@ -13,9 +13,9 @@ obj-m := usb_semg.o
 
 ifeq ($(ARM), y)
 	CROSS_COMPILE=arm-linux-
-	KERNELDIR ?= /home/yao/share/linux-3.0.1
+	KERNELDIR ?= /home/yao/share/linux-2.6.36
 	CCC=arm-linux-gcc
-	#EXTRA_CFLAGS += -DSEMG_ARM
+	EXTRA_CFLAGS += -DSEMG_ARM
 else
 	KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 	CCC=gcc
