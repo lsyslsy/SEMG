@@ -94,7 +94,7 @@ void  process(void *parameter)
 
 			///##数据包出错改怎么处理##////
 			memcpy(sendbuff + 7 +branch_num * SEMG_DATA_SIZE,
-				&semg_pool[branch_num][SEMG_HEADER_SIZE], SEMG_DATA_SIZE);
+				bx->data_pool+SEMG_HEADER_SIZE, SEMG_DATA_SIZE);
 	 	} else if (job->type == 2) { // motion sensor data
 		 	branch_num = job->branch_num;
 	 		pbuf = sensor_recv_buf[branch_num - SEMG_NUM];
@@ -106,6 +106,7 @@ void  process(void *parameter)
 #ifdef DEBUG_INFO
 				print_data(pbuf, branch_num);
 #endif
+				memcpy(bx->data_pool, pbuf, SENSOR_FRAME_SIZE);
 			} else {
 				DebugWarn("Data Packet from Branch%d have wrong bytes:%d\n",
 						branch_num, tmp);
@@ -118,10 +119,10 @@ void  process(void *parameter)
 			// 	sendbuff[0] = 0x48;
 			// if(data_pool[branch_num][0] == 0xee)
 			// 	sendbuff[1] = pbuf[1] | 0x01 << branch_num;
-
+			// TODO 还没把传感数据拷出来
 			///##数据包出错改怎么处理##////
 			memcpy(sendbuff + 7 + SEMG_NUM * SEMG_DATA_SIZE + (branch_num - SEMG_NUM) * SENSOR_DATA_SIZE,
-				&sensor_pool[branch_num - SEMG_NUM][SENSOR_HEADER_SIZE], SENSOR_DATA_SIZE);
+				bx->data_pool+SENSOR_HEADER_SIZE, SENSOR_DATA_SIZE);
 	 	} else { // 读完一个循环了
 	 		// start to send data
 		 	// NOTE: 可能有竞争，打包和发送

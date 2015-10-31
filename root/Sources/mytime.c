@@ -39,7 +39,7 @@ int mysync()
 {
     int retval = 0;
     int i;
-    int expected_fn;
+    int expected_fn = 0;
     int current_fn;
     unsigned long expire;
 
@@ -102,7 +102,9 @@ void timeout_info(int signo)
     if (capture_state == 0) {
         DebugError("fatal:why no processing\n");
     }
-    capture_state = 0; // set state to start
+    if (capture_state == 2) { // if finished
+        capture_state = 0; // set state to start
+    }
     pthread_cond_signal(&cond_tick); // notify the condition to collector
     pthread_mutex_unlock(&mutex_tick);
 
