@@ -490,7 +490,7 @@ bool update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
 			}
 			pdata += 1;
 			parse_sensor_data(pdata, sensorBuffers[i-8]); 
-			pdata += 92;
+			pdata += 90;
 			size -= 92;
 			break;
 		case 0xED:
