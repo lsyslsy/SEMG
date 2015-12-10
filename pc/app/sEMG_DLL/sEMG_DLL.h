@@ -103,6 +103,17 @@ sEMGAPI unsigned int    get_losenum(void);
 sEMGAPI int   get_sEMG_data(int channel_id, unsigned int size, void *pd);
 
 /**
+ * Get sensor data from internal data buffer if any
+ *
+ * @param[int] sensor_num(0-3) the specified number of motion sensor board.
+ * @param[int] size the size of sensorData array.包括磁、陀螺、加速度，需要*3.
+ * @param[out] pd an sensorData array pointer to store the data.
+ * @return the count of data acctually put into pd[].
+ * @note : the function will just return one sensor board's data
+ */
+sEMGAPI int get_sensor_data(int sensor_num, unsigned int size, void *pd);
+
+/**
  * set the callback function of notification
  *
  * @param[in] pfunc notification callback function pointer

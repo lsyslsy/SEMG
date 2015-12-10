@@ -11,9 +11,10 @@
 /*************** constant *****************/
 //#define TIMES_TO_INQUIRE 10
 #define MAX_TURN_BYTE			32*1024
-#define MAX_CHANNEL_NUM	128
-#define POINT_NUM 100
-#define CYCLICAL_BUFFER_SIZE	 10
+#define MAX_CHANNEL_NUM			128
+#define MAX_SENSOR_NUM 			4
+#define POINT_NUM 				100
+#define CYCLICAL_BUFFER_SIZE	10
 
 
 enum dev_stat {
@@ -75,6 +76,21 @@ struct cyc_buffer {	/* internal cyclical buffer (one channel) */
     struct raw_sEMGdata raw_data[CYCLICAL_BUFFER_SIZE];
 };
 
+// motion sensor
+struct sensorData {
+	int16_t x[5];
+	int16_t y[5];
+	int16_t z[5];
+};
+
+struct sensorCycBuffer {
+	unsigned int valid_amount;
+	unsigned int header;
+	struct sensorData mag[CYCLICAL_BUFFER_SIZE]; 	
+	struct sensorData gyro[CYCLICAL_BUFFER_SIZE];
+	struct sensorData acc[CYCLICAL_BUFFER_SIZE];
+};
+
 struct protocol_stat {
 	unsigned int cmd_stat;		/* the next comand state */
 	unsigned int sub_stat;		/* sub type stat mainly used for cmd */
@@ -117,6 +133,7 @@ bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat);
 bool update_data(struct dev_info *pdi, struct protocol_stat *pstat);
 bool update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat);
 void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num);
+void parse_sensor_data(unsigned char *pdata, struct sensorCycBuffer *pcb);
 bool Is_connect_ready(void);
 bool Is_send_ready(void);
 bool Is_recv_ready(void);

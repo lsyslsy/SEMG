@@ -68,6 +68,7 @@ unsigned char spi_stat[2];//暂时用来反馈SPI用
 
 std::mutex data_mutex;			/* for pcbuffer use */
 struct cyc_buffer *pcbuffer[MAX_CHANNEL_NUM] = { nullptr };	/* pointer of internal cyclical data buffer */
+struct sensorCycBuffer *sensorBuffers[MAX_SENSOR_NUM] = { nullptr };	/* pointer of internal cyclical data buffer */
 
 RLS_PARM RlsFilters[MAX_CHANNEL_NUM];
 Butterworth_4order BwFilters[MAX_CHANNEL_NUM];
@@ -133,6 +134,9 @@ void init_dll(void)
 	for (i = 0; i < MAX_CHANNEL_NUM; i++) {
 		pcbuffer[i] = (struct cyc_buffer *)malloc(sizeof(struct cyc_buffer));
 	}
+	for (i = 0; i < MAX_SENSOR_NUM; i++) {
+		sensorBuffers[i] = (struct sensorCycBuffer *)malloc(sizeof(struct sensorCycBuffer));	
+	}
 	data_mutex.unlock();
 
 	device.dev_stat = dev_NONE;
@@ -156,6 +160,11 @@ void uninit(void)
 			free(pcbuffer[i]);
 		pcbuffer[i] = NULL;	/* no data right now */
 	}
+	for (i = 0; i < MAX_SENSOR_NUM; i++) {
+		if (sensorBuffers[i])
+			free(sensorBuffers[i]);
+		sensorBuffers[i] = NULL;
+	}	
 	data_mutex.unlock();
 	inited = false;
 	return;
@@ -192,6 +201,10 @@ bool protocol_handler(struct dev_info *pdi, bool *prun)
 		RLS::filter_init(&RlsFilters[i]);
 		BaseLine_bias[i] = 0;
 		Butterworth::filter_init(&BwFilters[i]);
+	}
+	for (i = 0; i < MAX_SENSOR_NUM; i++) {
+		sensorBuffers[i]->header = -1;
+		sensorBuffers[i]->valid_amount = 0;
 	}
 	data_mutex.unlock();
 	stat.cmd_stat = PSTAT_INIT_SOCKET;
@@ -357,7 +370,6 @@ bool shakehand(struct dev_info *pdi, struct protocol_stat *pstat)
 /* update_data: update data using wifi packet */
 bool update_data(struct dev_info *pdi, struct protocol_stat *pstat){
 
-	bool ret = false;
 	char cmd;
 
 	int length;
@@ -423,7 +435,6 @@ bool update_data(struct dev_info *pdi, struct protocol_stat *pstat){
 /* update_cbuffer: update data into buffer */
 bool update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
 	int i;
-	bool ret = false;
 	unsigned char *pdata = pstat->pdata;
 	unsigned int size;
 	//unsigned char data_num;
@@ -466,11 +477,19 @@ bool update_cbuffer(struct dev_info *pdi, struct protocol_stat *pstat){
 			size -= 200;
 			break;
 		case 0x12: // motion sensor 数据
+			pdata += 1;
+			i = *pdata;
+			if (*pdata < 8 || *pdata >11) {
+				DebugError("data parse 0x12 error\n");
+				goto err;
+			}
 			if (size < 92) {
 				DebugError("motion sensor size < 92\n");
 				goto err;
 
 			}
+			pdata += 1;
+			parse_sensor_data(pdata, sensorBuffers[i-8]); 
 			pdata += 92;
 			size -= 92;
 			break;
@@ -532,6 +551,38 @@ void parse_data(unsigned char *pdata, struct cyc_buffer *pcb, int num){
 #endif
 }
 
+// parse motion sensor data
+void parse_sensor_data(unsigned char *pdata, struct sensorCycBuffer *pcb) {
+	if (pdata == NULL)
+		return;
+	pcb->header = (++(pcb->header)) % CYCLICAL_BUFFER_SIZE;
+	if ((++(pcb->valid_amount)) > CYCLICAL_BUFFER_SIZE) {
+		pcb->valid_amount = CYCLICAL_BUFFER_SIZE;
+		//DebugWarn("data buffer overflow\n");
+	}
+	for (unsigned int i = 0; i < 5; i++) {
+		pcb->mag[pcb->header].x[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+		pcb->mag[pcb->header].y[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+		pcb->mag[pcb->header].z[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+
+		pcb->gyro[pcb->header].x[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+		pcb->gyro[pcb->header].y[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+		pcb->gyro[pcb->header].z[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+		
+		pcb->acc[pcb->header].x[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+		pcb->acc[pcb->header].y[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+		pcb->acc[pcb->header].z[i] = (*pdata << 8) + *(pdata + 1); 
+		pdata += 2;
+	}
+}
 
 inline bool Is_connect_ready(void)
 {

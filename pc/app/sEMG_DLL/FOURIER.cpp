@@ -32,7 +32,6 @@ void FOURIER::filter_init(FOURIER_PARM *channel)
 
 void FOURIER::filter(FOURIER_PARM *channel, double *DIN, double *DOUT, unsigned int LEN)
 {
-	double x_;
 	double tmp = 0;
 	unsigned int n;
 	int i = 0;

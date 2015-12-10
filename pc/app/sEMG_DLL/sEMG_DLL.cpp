@@ -25,6 +25,7 @@ extern unsigned char spi_stat[2];
 extern bool inited;
 extern std::mutex data_mutex;			/* for pcbuffer use */
 extern struct cyc_buffer *pcbuffer[MAX_CHANNEL_NUM];
+extern struct sensorCycBuffer *sensorBuffers[MAX_SENSOR_NUM];
 
 extern int Filter_Options;
 extern void(*notify_data)(void);
@@ -201,6 +202,41 @@ sEMGAPI int get_sEMG_data(int channel_id, unsigned int size, void *pd)
 #ifdef DLL_DEBUG_MODE
 	//OutputDebugPrintf("DEBUG_INFO | channelID = %d num = %d, valid_amount = %d\n",channel_id,num,pcbuffer[channel_id]->valid_amount);
 #endif
+
+	data_mutex.unlock();
+	return num;
+}
+
+sEMGAPI int get_sensor_data(int sensor_num, unsigned int size, void *pd)
+{
+	int i;
+	int num;//the actual count of data to read
+	unsigned int header;
+	struct sensorData *psn;
+	num = 0;
+	//TODO 优化掉数据同步问题
+	psn = (struct sensorData *)pd;
+	if (sensor_num >= MAX_SENSOR_NUM)
+		return num;
+	data_mutex.lock();
+	if (sensorBuffers[sensor_num] == NULL)
+		return num;
+	if (sensorBuffers[sensor_num]->valid_amount) {  //any valid channel data
+		if (size < sensorBuffers[sensor_num]->valid_amount)
+			num = size;
+		else
+			num = sensorBuffers[sensor_num]->valid_amount;
+
+		header = (sensorBuffers[sensor_num]->header + CYCLICAL_BUFFER_SIZE - sensorBuffers[sensor_num]->valid_amount + 1) % CYCLICAL_BUFFER_SIZE;//计算数据指针初始位置
+		sensorBuffers[sensor_num]->valid_amount -= num;
+
+		for (i = 0; i < 3*num; i += 3) {
+			psn[i] = sensorBuffers[sensor_num]->mag[header];
+			psn[i+1] = sensorBuffers[sensor_num]->gyro[header];
+			psn[i+2] = sensorBuffers[sensor_num]->acc[header];
+			header = (++header) % CYCLICAL_BUFFER_SIZE;
+		}
+	}
 
 	data_mutex.unlock();
 	return num;
