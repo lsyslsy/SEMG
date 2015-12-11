@@ -63,7 +63,10 @@
             this.flowLayoutPanel2 = new System.Windows.Forms.FlowLayoutPanel();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
-            this.checkVideo = new System.Windows.Forms.CheckBox();
+            this.checkGraph = new System.Windows.Forms.RadioButton();
+            this.checkVideo = new System.Windows.Forms.RadioButton();
+            this.checkMotion = new System.Windows.Forms.RadioButton();
+            this.zedGraphControl2 = new ZedGraph.ZedGraphControl();
             this.menuStrip1.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
@@ -82,7 +85,7 @@
             this.helpToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(835, 25);
+            this.menuStrip1.Size = new System.Drawing.Size(835, 24);
             this.menuStrip1.TabIndex = 0;
             this.menuStrip1.Text = "menuStrip1";
             // 
@@ -92,13 +95,13 @@
             this.openToolStripMenuItem,
             this.closeToolStripMenuItem});
             this.deviceToolStripMenuItem.Name = "deviceToolStripMenuItem";
-            this.deviceToolStripMenuItem.Size = new System.Drawing.Size(58, 21);
+            this.deviceToolStripMenuItem.Size = new System.Drawing.Size(54, 20);
             this.deviceToolStripMenuItem.Text = "&Device";
             // 
             // openToolStripMenuItem
             // 
             this.openToolStripMenuItem.Name = "openToolStripMenuItem";
-            this.openToolStripMenuItem.Size = new System.Drawing.Size(108, 22);
+            this.openToolStripMenuItem.Size = new System.Drawing.Size(103, 22);
             this.openToolStripMenuItem.Text = "Open";
             this.openToolStripMenuItem.Click += new System.EventHandler(this.openToolStripMenuItem_Click);
             // 
@@ -106,14 +109,14 @@
             // 
             this.closeToolStripMenuItem.Enabled = false;
             this.closeToolStripMenuItem.Name = "closeToolStripMenuItem";
-            this.closeToolStripMenuItem.Size = new System.Drawing.Size(108, 22);
+            this.closeToolStripMenuItem.Size = new System.Drawing.Size(103, 22);
             this.closeToolStripMenuItem.Text = "&Close";
             this.closeToolStripMenuItem.Click += new System.EventHandler(this.closeToolStripMenuItem_Click);
             // 
             // dataToolStripMenuItem
             // 
             this.dataToolStripMenuItem.Name = "dataToolStripMenuItem";
-            this.dataToolStripMenuItem.Size = new System.Drawing.Size(47, 21);
+            this.dataToolStripMenuItem.Size = new System.Drawing.Size(43, 20);
             this.dataToolStripMenuItem.Text = "Data";
             // 
             // settingToolStripMenuItem
@@ -122,20 +125,20 @@
             this.configurationToolStripMenuItem,
             this.actionMappingToolStripMenuItem});
             this.settingToolStripMenuItem.Name = "settingToolStripMenuItem";
-            this.settingToolStripMenuItem.Size = new System.Drawing.Size(60, 21);
+            this.settingToolStripMenuItem.Size = new System.Drawing.Size(56, 20);
             this.settingToolStripMenuItem.Text = "&Setting";
             // 
             // configurationToolStripMenuItem
             // 
             this.configurationToolStripMenuItem.Name = "configurationToolStripMenuItem";
-            this.configurationToolStripMenuItem.Size = new System.Drawing.Size(169, 22);
+            this.configurationToolStripMenuItem.Size = new System.Drawing.Size(160, 22);
             this.configurationToolStripMenuItem.Text = "&Configuration";
             this.configurationToolStripMenuItem.Click += new System.EventHandler(this.configurationToolStripMenuItem_Click);
             // 
             // actionMappingToolStripMenuItem
             // 
             this.actionMappingToolStripMenuItem.Name = "actionMappingToolStripMenuItem";
-            this.actionMappingToolStripMenuItem.Size = new System.Drawing.Size(169, 22);
+            this.actionMappingToolStripMenuItem.Size = new System.Drawing.Size(160, 22);
             this.actionMappingToolStripMenuItem.Text = "&Action Mapping";
             this.actionMappingToolStripMenuItem.Click += new System.EventHandler(this.actionMappingToolStripMenuItem_Click);
             // 
@@ -144,20 +147,20 @@
             this.toolsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.analysisToolStripMenuItem});
             this.toolsToolStripMenuItem.Name = "toolsToolStripMenuItem";
-            this.toolsToolStripMenuItem.Size = new System.Drawing.Size(52, 21);
+            this.toolsToolStripMenuItem.Size = new System.Drawing.Size(48, 20);
             this.toolsToolStripMenuItem.Text = "&Tools";
             // 
             // analysisToolStripMenuItem
             // 
             this.analysisToolStripMenuItem.Name = "analysisToolStripMenuItem";
-            this.analysisToolStripMenuItem.Size = new System.Drawing.Size(122, 22);
+            this.analysisToolStripMenuItem.Size = new System.Drawing.Size(117, 22);
             this.analysisToolStripMenuItem.Text = "Analysis";
             this.analysisToolStripMenuItem.Click += new System.EventHandler(this.analysisToolStripMenuItem_Click);
             // 
             // helpToolStripMenuItem
             // 
             this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
-            this.helpToolStripMenuItem.Size = new System.Drawing.Size(47, 21);
+            this.helpToolStripMenuItem.Size = new System.Drawing.Size(44, 20);
             this.helpToolStripMenuItem.Text = "Help";
             // 
             // statusStrip1
@@ -256,7 +259,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(140, 67);
+            this.label1.Location = new System.Drawing.Point(129, 133);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(47, 12);
             this.label1.TabIndex = 5;
@@ -302,10 +305,10 @@
             // 
             this.listBox1.FormattingEnabled = true;
             this.listBox1.ItemHeight = 12;
-            this.listBox1.Location = new System.Drawing.Point(131, 82);
+            this.listBox1.Location = new System.Drawing.Point(131, 166);
             this.listBox1.Name = "listBox1";
             this.listBox1.ScrollAlwaysVisible = true;
-            this.listBox1.Size = new System.Drawing.Size(106, 280);
+            this.listBox1.Size = new System.Drawing.Size(106, 196);
             this.listBox1.TabIndex = 9;
             // 
             // tabControl1
@@ -376,22 +379,64 @@
             this.pictureBox1.TabStop = false;
             this.pictureBox1.Visible = false;
             // 
+            // checkGraph
+            // 
+            this.checkGraph.AutoSize = true;
+            this.checkGraph.Checked = true;
+            this.checkGraph.Location = new System.Drawing.Point(143, 50);
+            this.checkGraph.Name = "checkGraph";
+            this.checkGraph.Size = new System.Drawing.Size(53, 16);
+            this.checkGraph.TabIndex = 14;
+            this.checkGraph.TabStop = true;
+            this.checkGraph.Text = "graph";
+            this.checkGraph.UseVisualStyleBackColor = true;
+            // 
             // checkVideo
             // 
             this.checkVideo.AutoSize = true;
-            this.checkVideo.Location = new System.Drawing.Point(142, 48);
+            this.checkVideo.Location = new System.Drawing.Point(143, 72);
             this.checkVideo.Name = "checkVideo";
-            this.checkVideo.Size = new System.Drawing.Size(54, 16);
-            this.checkVideo.TabIndex = 13;
+            this.checkVideo.Size = new System.Drawing.Size(53, 16);
+            this.checkVideo.TabIndex = 14;
             this.checkVideo.Text = "video";
             this.checkVideo.UseVisualStyleBackColor = true;
+            // 
+            // checkMotion
+            // 
+            this.checkMotion.AutoSize = true;
+            this.checkMotion.Location = new System.Drawing.Point(142, 94);
+            this.checkMotion.Name = "checkMotion";
+            this.checkMotion.Size = new System.Drawing.Size(59, 16);
+            this.checkMotion.TabIndex = 14;
+            this.checkMotion.Text = "motion";
+            this.checkMotion.UseVisualStyleBackColor = true;
+            // 
+            // zedGraphControl2
+            // 
+            this.zedGraphControl2.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.zedGraphControl2.Location = new System.Drawing.Point(271, 28);
+            this.zedGraphControl2.Name = "zedGraphControl2";
+            this.zedGraphControl2.ScrollGrace = 0D;
+            this.zedGraphControl2.ScrollMaxX = 0D;
+            this.zedGraphControl2.ScrollMaxY = 0D;
+            this.zedGraphControl2.ScrollMaxY2 = 0D;
+            this.zedGraphControl2.ScrollMinX = 0D;
+            this.zedGraphControl2.ScrollMinY = 0D;
+            this.zedGraphControl2.ScrollMinY2 = 0D;
+            this.zedGraphControl2.Size = new System.Drawing.Size(564, 526);
+            this.zedGraphControl2.TabIndex = 2;
+            this.zedGraphControl2.Visible = false;
             // 
             // sEMGFrm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(835, 579);
+            this.Controls.Add(this.checkMotion);
             this.Controls.Add(this.checkVideo);
+            this.Controls.Add(this.checkGraph);
             this.Controls.Add(this.pictureBox1);
             this.Controls.Add(this.progressBar1);
             this.Controls.Add(this.tabControl1);
@@ -401,6 +446,7 @@
             this.Controls.Add(this.btnGetData);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.channelView);
+            this.Controls.Add(this.zedGraphControl2);
             this.Controls.Add(this.zedGraphControl1);
             this.Controls.Add(this.statusStrip1);
             this.Controls.Add(this.menuStrip1);
@@ -462,7 +508,10 @@
         private System.Windows.Forms.ToolStripMenuItem toolsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem analysisToolStripMenuItem;
         private System.Windows.Forms.PictureBox pictureBox1;
-        private System.Windows.Forms.CheckBox checkVideo;
+        private System.Windows.Forms.RadioButton checkGraph;
+        private System.Windows.Forms.RadioButton checkVideo;
+        private System.Windows.Forms.RadioButton checkMotion;
+        private ZedGraph.ZedGraphControl zedGraphControl2;
     }
 }
 

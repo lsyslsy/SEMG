@@ -17,8 +17,8 @@ using Emgu.Util;
 using Emgu.CV.Structure;
 
 namespace SEMG.UIL
-{      
-    
+{
+
 
 
     public partial class sEMGFrm : Form
@@ -36,19 +36,35 @@ namespace SEMG.UIL
         StringBuilder dllInfo = new StringBuilder(100);
         // List<sEMGdata> ldata = new List<sEMGdata>();
         //PointPairList pl = new PointPairList();
-        List<double>[] channelData = new List<double>[Parameters.usingChannelCount+1];
+        List<double>[] channelData = new List<double>[Parameters.usingChannelCount + 1];
+        List<short>[] sensorChannelData = new List<short>[36];
+
         PointPairList[] pl = new PointPairList[10];
+        PointPairList[] sensorPointList = new PointPairList[9];
         int[] channelIndex = new int[10];
-        filters.Butterworth_4order[] bw_filters =new filters.Butterworth_4order[10];
+        filters.Butterworth_4order[] bw_filters = new filters.Butterworth_4order[10];
         private const int POINT_NUM = 100;
+        private const int SENSOR_POINT_NUM = 5;
         FileHelper fileHelper;
-  
+
         [StructLayout(LayoutKind.Sequential)]
         struct sEMGdata
         {
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = POINT_NUM)]
             public double[] point;// = new double[POINT_NUM];
         };
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct sensorData
+        {
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = SENSOR_POINT_NUM)]
+            public short[] x;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = SENSOR_POINT_NUM)]
+            public short[] y;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = SENSOR_POINT_NUM)]
+            public short[] z;
+        };
+
         #region 外部引用
         [DllImport("sEMG_DLL.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern int sEMG_open(int a, string ip, int filter_options);
@@ -75,6 +91,8 @@ namespace SEMG.UIL
         [DllImport("sEMG_DLL.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public static extern int get_sEMG_data(int channel_id, uint size, IntPtr pd);
         [DllImport("sEMG_DLL.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        public static extern int get_sensor_data(int sensor_num, uint size, IntPtr pd);
+        [DllImport("sEMG_DLL.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public static extern void set_data_notify(scallBack pfunc);
         [DllImport("sEMG_DLL.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public static extern void reset_data_notify();
@@ -89,71 +107,68 @@ namespace SEMG.UIL
             InitializeComponent();
 
             channelView.MultiSelect = false;
-          //  btnGetData.BackColor = Color.Green;
+            //  btnGetData.BackColor = Color.Green;
             ds = new EventHandler(hallo);
-            for (int i = 0; i < pl.Length; i++)
-            {
+            for (int i = 0; i < pl.Length; i++) {
                 channelIndex[i] = -1;
                 pl[i] = new PointPairList();
-               
+
             }
-            for (int i = 0; i < channelData.Length; i++)
-            {
+            for (int i = 0; i < channelData.Length; i++) {
                 channelData[i] = new List<double>();
             }
-                
-            Graph_Show();
+
+            for (int i = 0; i < sensorPointList.Length; i++) {
+                sensorPointList[i] = new PointPairList();
+            }
+            for (int i = 0; i < sensorChannelData.Length; i++) {
+                sensorChannelData[i] = new List<short>();
+            }
+
+
+                Graph_Show();
+            showSensor();
             // channelView.View = View.List;
             //showVideo();
-                     
+
         }
-       
+
         /// <summary>
         /// 跨平台调用
         /// </summary>
         void GetData()
         {
             tickCount++;
-            if (tickCount == 10)
-            {
+            if (tickCount == 10) {
                 countTimer = new System.Timers.Timer(10000);//10s
                 countTimer.Elapsed += new System.Timers.ElapsedEventHandler(countTimer_Elapsed);
                 countTimer.AutoReset = false;
                 countTimer.Start();
             }
 
-            if (ar != null && !ar.IsCompleted)
-            {
+            if (ar != null && !ar.IsCompleted) {
                 Trace.WriteLine("处理超时");
                 pd.EndInvoke(ar);
             }
             byte[] spi_tat = new byte[2];
-            IntPtr spi_p =  Marshal.AllocHGlobal(2);
+            IntPtr spi_p = Marshal.AllocHGlobal(2);
             get_spi_stat(spi_p);
             Marshal.Copy(spi_p, spi_tat, 0, 2);
-            if (spi_tat[0] != 0)
-            {
+            if (spi_tat[0] != 0) {
                 MessageBox.Show("fatal wrong");
             }
-            if (spi_tat[1] != 0)
-            {
-                try
-                {
+            if (spi_tat[1] != 0) {
+                try {
                     if (!(closing || this.IsDisposed || this.Disposing))
                         this.BeginInvoke((EventHandler)delegate
                         {
-   /////////////////////////     
-                            if(listBox1.Items.Count>100)
+                            /////////////////////////     
+                            if (listBox1.Items.Count > 100)
                                 listBox1.Items.RemoveAt(0);
-                            listBox1.Items.Add(Convert.ToString(spi_tat[1], 2).PadLeft(8, '0')+"\n");
+                            listBox1.Items.Add(Convert.ToString(spi_tat[1], 2).PadLeft(8, '0') + "\n");
                             listBox1.SelectedIndex = listBox1.Items.Count - 1;
                         });
-                }
-
-                catch (ObjectDisposedException e)
-                { }
-                catch (Exception e)
-                {
+                } catch (ObjectDisposedException e) { } catch (Exception e) {
                     throw e;
                 }
             }
@@ -163,27 +178,48 @@ namespace SEMG.UIL
             IntPtr p = Marshal.AllocHGlobal(size);//= &mydata;
             byte[] bytes = new byte[size];
             //从所有通道中读取数据
-            for (int _channelIndex = 0; _channelIndex < Parameters.usingChannelCount; _channelIndex++)
-            { 
+            for (int _channelIndex = 0; _channelIndex < Parameters.usingChannelCount; _channelIndex++) {
                 //在回调中调用，将不会有数据同步问题
                 int count = get_sEMG_data(_channelIndex, 10, p);
-                for (int j = 0; j < count; j++)
-                {
+                for (int j = 0; j < count; j++) {
                     IntPtr pPonitor = new IntPtr(p.ToInt64() + Marshal.SizeOf(typeof(sEMGdata)) * j);
                     mydata[j] = (sEMGdata)Marshal.PtrToStructure(pPonitor, typeof(sEMGdata));
 
-                }        
+                }
                 channelData[_channelIndex].Clear();                //read all buffered data 
-                for (int j = 0; j < count; j++)
-                {
+                for (int j = 0; j < count; j++) {
                     double data;
-                    for (int k = 0; k< POINT_NUM; k++)
-                    {
+                    for (int k = 0; k < POINT_NUM; k++) {
                         data = mydata[j].point[k] * Parameters.scaling;
                         if (data > 1) data = 1;
                         if (data < -1) data = -1;
                         channelData[_channelIndex].Add(data);
                     }
+                }
+            }
+
+            // sensor data process
+            sensorData[] _sensorData = new sensorData[30];
+            int sensorSize = Marshal.SizeOf(typeof(sEMGdata)) * 30;
+            IntPtr sensorPointer = Marshal.AllocHGlobal(sensorSize);//= &mydata;
+            byte[] sensorBytes = new byte[sensorSize];
+            int sensorCount = get_sensor_data(0, 10U, sensorPointer);
+            for (int j = 0; j < sensorCount*3; j++) {
+                IntPtr pPonitor = new IntPtr(sensorPointer.ToInt64() + Marshal.SizeOf(typeof(sensorData)) * j);
+                _sensorData[j] = (sensorData)Marshal.PtrToStructure(pPonitor, typeof(sensorData));
+
+            }
+            for (int j = 0; j < sensorCount; j++) {
+                for (int k = 0; k < SENSOR_POINT_NUM; k++) {
+                     sensorChannelData[0].Add(_sensorData[3 * j].x[k]);
+                     sensorChannelData[1].Add(_sensorData[3 * j].y[k]);
+                     sensorChannelData[2].Add(_sensorData[3 * j].z[k]);
+                     sensorChannelData[3].Add(_sensorData[3 * j+1].x[k]);
+                     sensorChannelData[4].Add(_sensorData[3 * j+1].y[k]);
+                     sensorChannelData[5].Add(_sensorData[3 * j+1].z[k]);
+                     sensorChannelData[6].Add(_sensorData[3 * j+2].x[k]);
+                     sensorChannelData[7].Add(_sensorData[3 * j+2].y[k]);
+                     sensorChannelData[8].Add(_sensorData[3 * j+2].z[k]);
                 }
             }
 
@@ -194,53 +230,57 @@ namespace SEMG.UIL
         }
         IAsyncResult ar;
         public delegate void processdataDelegate();
-       
+
         processdataDelegate pd;
         void processdata()
         {
             StringCollection stringCollection = new StringCollection();
             if (checkRecord.Checked && btnGetData.Enabled == false)//need to write data
             {
-                for (int i = 0; i < channelData[0].Count; i++)
-                {
+                for (int i = 0; i < channelData[0].Count; i++) {
                     StringBuilder sb = new StringBuilder(1500);//for optimization
                     sb.Append(string.Format("{0}.{1:D3}\t", sampleTime / 1000, sampleTime % 1000));
                     sampleTime++;
-                    for (int _channelIndex = 0; _channelIndex < Parameters.usingChannelCount; _channelIndex++)
-                    {
+                    for (int _channelIndex = 0; _channelIndex < Parameters.usingChannelCount; _channelIndex++) {
                         sb.Append(channelData[_channelIndex][i].ToString() + "\t");
                     }
                     sb.Append(selectedAction);
                     stringCollection.Add(sb.ToString());
                 }
 
-                try
-                {
+                try {
                     fileHelper.WriteSC(stringCollection);
-                }
-                catch (Exception exp)
-                {
+                } catch (Exception exp) {
                     MessageBox.Show("写入文件错误:\n" + exp.ToString(), "失败");
                 }
             }
 
             byte[] img = new byte[128];
-            if (checkVideo.Checked)
-            {
+            if (checkVideo.Checked) {
 
-                for (int ii = 0; ii < Parameters.totalChannelCount; ii++)
-                {
-                    img[ii] = (byte)(Math.Abs(channelData[ii][0])*255);
+                for (int ii = 0; ii < Parameters.totalChannelCount; ii++) {
+                    img[ii] = (byte)(Math.Abs(channelData[ii][0]) * 255);
                 }
 
-            }
-            else //read data and add point
+            } else if (checkMotion.Checked) {
+                for (int ii = 0; ii < 9; ii++) {
+                    for (int i = 0; i < sensorChannelData[ii].Count; i++) {
+                        sensorPointList[ii].Add(0, sensorChannelData[ii][i]);
+                    }
+                    //remain only configure ms
+                    if (sensorPointList[ii].Count >= Parameters.duration/20) {
+                        sensorPointList[ii].RemoveRange(0, sensorPointList[ii].Count - Parameters.duration/20);
+                    }
+                    //set x axis
+                    for (int i = 0; i < sensorPointList[ii].Count; i++) {
+                        sensorPointList[ii][i].X = i;
+                    }
+                }
+            } else  {//read data and add point
                 lock (pl)   //lock pl
                 {
-                    for (int ii = 0; ii < Parameters.showChannelCount; ii++)
-                    {
-                        if (channelIndex[ii] == -1)
-                        {
+                    for (int ii = 0; ii < Parameters.showChannelCount; ii++) {
+                        if (channelIndex[ii] == -1) {
                             pl[ii].Clear();
                             continue;
                         }
@@ -249,44 +289,36 @@ namespace SEMG.UIL
                         List<double> dout = new List<double>();
                         //dout.AddRange(channelData[ii].ToList<double>());
                         //filters.filter(ref bw_filters[ii], channelData[channelIndex[ii]], ref dout, (uint)channelData[channelIndex[ii]].Count);
-                        for (int i = 0; i < channelData[channelIndex[ii]].Count; i++)
-                        {
+                        for (int i = 0; i < channelData[channelIndex[ii]].Count; i++) {
                             pl[ii].Add(0, (double)channelData[channelIndex[ii]][i]);
                             // pl[ii].Add(0, dout[i]);
                         }
                         //remain only configure ms
-                        if (pl[ii].Count >= Parameters.duration)
-                        {
+                        if (pl[ii].Count >= Parameters.duration) {
                             pl[ii].RemoveRange(0, pl[ii].Count - Parameters.duration);
                         }
                         //set x axis
-                        for (int i = 0; i < pl[ii].Count; i++)
-                        {
+                        for (int i = 0; i < pl[ii].Count; i++) {
                             pl[ii][i].X = i;
                         }
                     }
                 }
-            try
-            {
+            }
+            try {
                 if (!(closing || this.IsDisposed || this.Disposing))
                     this.BeginInvoke((EventHandler)delegate
                     {
-                        if (checkVideo.Checked)
-                        {
+                        if (checkVideo.Checked) {
                             showVideo(img);
-                        }
-                        else
-                        {
+                        } else if (checkMotion.Checked) {
+                            zedGraphControl2.AxisChange();
+                            zedGraphControl2.Refresh();
+                        } else {
                             zedGraphControl1.AxisChange();
                             zedGraphControl1.Refresh();
                         }
                     });
-            }
-
-            catch (ObjectDisposedException e)
-            { }
-            catch (Exception e)
-            {
+            } catch (ObjectDisposedException e) { } catch (Exception e) {
                 throw e;
             }
 
@@ -320,8 +352,7 @@ namespace SEMG.UIL
 
             ColorSymbolRotator rotator = new ColorSymbolRotator();
 
-            for (int j = 0; j < Parameters.showChannelCount; j++)
-            {
+            for (int j = 0; j < Parameters.showChannelCount; j++) {
                 // Create a new graph with topLeft at (40,40) and size 600x400
                 GraphPane myPaneT = new GraphPane(new Rectangle(40, 40, 600, 400),
                     "Case #" + (j + 1).ToString(),
@@ -348,8 +379,7 @@ namespace SEMG.UIL
                 myPaneT.Margin.All = 0;
                 //if (j == 0)
                 //    myPaneT.Margin.Top = 20;
-                if (j == Parameters.showChannelCount - 1)
-                {
+                if (j == Parameters.showChannelCount - 1) {
                     myPaneT.XAxis.Title.IsVisible = true;
                     myPaneT.XAxis.Scale.IsVisible = true;
                     // myPaneT.Margin.Bottom = 10;
@@ -370,8 +400,7 @@ namespace SEMG.UIL
                 master.Add(myPaneT);
             }
 
-            using (Graphics g = zedGraphControl1.CreateGraphics())
-            {
+            using (Graphics g = zedGraphControl1.CreateGraphics()) {
                 ZedGraphControl z1 = zedGraphControl1;
 
                 master.SetLayout(g, PaneLayout.SingleColumn);
@@ -420,19 +449,107 @@ namespace SEMG.UIL
             zedGraphControl1.AxisChange();
         }
 
+        void showSensor()
+        {
+
+            MasterPane master = zedGraphControl2.MasterPane;
+
+            master.PaneList.Clear();
+            master.Fill = new Fill(Color.White, Color.FromArgb(220, 220, 255), 45.0f);
+            master.PaneList.Clear();
+
+            //master.Title.IsVisible = true;
+            //master.Title.Text = "SEMG wave plot";
+
+            master.Margin.All = 10;
+            master.InnerPaneGap = 0;
+
+            ColorSymbolRotator rotator = new ColorSymbolRotator();
+
+            for (int j = 0; j < 9; j++) {
+                // Create a new graph with topLeft at (40,40) and size 600x400
+                GraphPane myPaneT = new GraphPane(new Rectangle(40, 40, 600, 400),
+                    "Case #" + (j + 1).ToString(),
+                    "时间(ms)",
+                    "signal(mV)");
+
+                myPaneT.Fill.IsVisible = false;
+
+                myPaneT.Chart.Fill = new Fill(Color.White, Color.LightYellow, 45.0F);
+                myPaneT.BaseDimension = 3.0F;
+                myPaneT.XAxis.Title.IsVisible = false;
+                myPaneT.XAxis.Scale.IsVisible = false;
+                myPaneT.Legend.IsVisible = false;
+                myPaneT.Border.IsVisible = false;
+                myPaneT.Title.IsVisible = false;
+                myPaneT.XAxis.MajorTic.IsOutside = false;
+                myPaneT.XAxis.MinorTic.IsOutside = false;
+                myPaneT.XAxis.MajorGrid.IsVisible = true;
+                myPaneT.XAxis.MinorGrid.IsVisible = true;
+               // myPaneT.XAxis.Scale.Max = Parameters.duration/20;
+               // myPaneT.XAxis.Scale.Min = 0;
+                myPaneT.YAxis.Scale.Max = 500;
+                myPaneT.YAxis.Scale.Min = -500;
+                myPaneT.Margin.All = 0;
+                //if (j == 0)
+                //    myPaneT.Margin.Top = 20;
+                if (j == 8) {
+                    myPaneT.XAxis.Title.IsVisible = true;
+                    myPaneT.XAxis.Scale.IsVisible = true;
+                    // myPaneT.Margin.Bottom = 10;
+                }
+
+                if (j > 0)
+                    myPaneT.YAxis.Scale.IsSkipLastLabel = true;
+
+                // This sets the minimum amount of space for the left and right side, respectively
+                // The reason for this is so that the ChartRect's all end up being the same size.
+                myPaneT.YAxis.MinSpace = 60;
+                myPaneT.Y2Axis.MinSpace = 20;
+
+                LineItem myCurve = myPaneT.AddCurve("Type " + j.ToString(),
+                    sensorPointList[j], Color.Blue/*rotator.NextColor*/, SymbolType.None);
+                myCurve.Symbol.Fill = new Fill(Color.White);
+
+                master.Add(myPaneT);
+            }
+
+            using (Graphics g = zedGraphControl2.CreateGraphics()) {
+                ZedGraphControl z2 = zedGraphControl2;
+
+                master.SetLayout(g, PaneLayout.SingleColumn);
+                z2.AxisChange();
+
+                z2.IsAutoScrollRange = true;
+                z2.IsShowHScrollBar = true;
+                z2.IsShowVScrollBar = true;
+                z2.IsSynchronizeXAxes = true;
+
+            }
+
+            zedGraphControl2.AxisChange();
+            zedGraphControl2.MasterPane.PaneList[0].YAxis.Title.Text = "Mag X";
+            zedGraphControl2.MasterPane.PaneList[1].YAxis.Title.Text = "Mag Y";
+            zedGraphControl2.MasterPane.PaneList[2].YAxis.Title.Text = "Mag Z";
+            zedGraphControl2.MasterPane.PaneList[3].YAxis.Title.Text = "Gyro X";
+            zedGraphControl2.MasterPane.PaneList[4].YAxis.Title.Text = "Gyro Y";
+            zedGraphControl2.MasterPane.PaneList[5].YAxis.Title.Text = "Gyro Z";
+            zedGraphControl2.MasterPane.PaneList[6].YAxis.Title.Text = "Acc X";
+            zedGraphControl2.MasterPane.PaneList[7].YAxis.Title.Text = "Acc Y";
+            zedGraphControl2.MasterPane.PaneList[8].YAxis.Title.Text = "Acc Z";
+
+        }
         #region  界面UI处理
-         #region 菜单
+        #region 菜单
         private void openToolStripMenuItem_Click(object sender, EventArgs e)
         {
             int ret = sEMG_open(1, Parameters.ip, Parameters.filterOption);
             openToolStripMenuItem.Enabled = false;
             //bool ret =true;
-            if (ret != 0 )
-            {
-                
+            if (ret != 0) {
+
                 channelNum = get_channel_num();
-                if (channelNum != Parameters.usingChannelCount)
-                {
+                if (channelNum != Parameters.usingChannelCount) {
                     MessageBox.Show("通道数配置错误");
                     sEMG_close();
                     openToolStripMenuItem.Enabled = true;
@@ -453,9 +570,7 @@ namespace SEMG.UIL
                 Graph_Show();
                 CreateButtons();
 
-            }
-            else
-            {
+            } else {
                 openToolStripMenuItem.Enabled = true;
                 sEMG_close();
                 MessageBox.Show("无法打开设备");
@@ -466,9 +581,8 @@ namespace SEMG.UIL
         private void CreateButtons()
         {
             int btnNum = (int)(Math.Ceiling((double)channelNum / (double)Parameters.showChannelCount));
-           
-            for (int i = 0; i < btnNum; i++)
-            {
+
+            for (int i = 0; i < btnNum; i++) {
                 Button btn = new Button();
                 int fromChn = i * Parameters.showChannelCount;
                 int toChn = i * Parameters.showChannelCount + Parameters.showChannelCount - 1;
@@ -497,11 +611,9 @@ namespace SEMG.UIL
         private void configurationToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Setting settingfrm = new Setting();
-            if (settingfrm.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                if (bStatus == true)
-                {
-                //    CloseDevice();
+            if (settingfrm.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
+                if (bStatus == true) {
+                    //    CloseDevice();
                 }
                 //Parameters.GetSettingXML();
             }
@@ -511,12 +623,11 @@ namespace SEMG.UIL
         private void actionMappingToolStripMenuItem_Click(object sender, EventArgs e)
         {
             ActionFrm actionfrm = new ActionFrm();
-            if (actionfrm.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-               
+            if (actionfrm.ShowDialog() == System.Windows.Forms.DialogResult.OK) {
+
                 //Parameters.GetSettingXML();
             }
-           
+
         }
         #endregion
 
@@ -524,8 +635,7 @@ namespace SEMG.UIL
         private void showVideo(byte[] src)
         {
             byte[] show = new byte[128];
-            for (int j = 0; j < 128; ++j)
-            {
+            for (int j = 0; j < 128; ++j) {
 
                 show[j] = src[(byte)(j % 16 * 8 + (7 - j / 16))];
             }
@@ -542,42 +652,36 @@ namespace SEMG.UIL
             SaveFileDialog saveFileDialog = new SaveFileDialog();
             saveFileDialog.Filter = "txt files (*.txt)|*.txt";
             saveFileDialog.AddExtension = true;
-            saveFileDialog.DefaultExt ="txt";
+            saveFileDialog.DefaultExt = "txt";
             saveFileDialog.CheckPathExists = true;
-            if (saveFileDialog.ShowDialog() != DialogResult.OK)
-            {
-                MessageBox.Show("Pleae choose file or uncheck the recording","failed");
+            if (saveFileDialog.ShowDialog() != DialogResult.OK) {
+                MessageBox.Show("Pleae choose file or uncheck the recording", "failed");
                 return false;
             }
-            
-            try
-            {          
+
+            try {
                 fileHelper = new FileHelper(saveFileDialog.FileName);
                 fileHelper.WriteLine("Encoding:\tUTF-8");
                 fileHelper.WriteLine("SampleRate:\t1000");
-                fileHelper.WriteLine("Date:\t"+DateTime.Now.ToShortDateString());
+                fileHelper.WriteLine("Date:\t" + DateTime.Now.ToShortDateString());
                 fileHelper.WriteLine("Time:\t" + DateTime.Now.ToShortTimeString());
                 fileHelper.WriteLine("Voltage:\tmV");
                 StringBuilder sb = new StringBuilder();
                 sb.Append("Time(s)\t");
-                for (int i=0; i < Parameters.usingChannelCount; i++)
-                {
-                    sb.Append("channel"+i.ToString()+"\t");
+                for (int i = 0; i < Parameters.usingChannelCount; i++) {
+                    sb.Append("channel" + i.ToString() + "\t");
                 }
                 sb.Append("Action");
                 fileHelper.WriteLine(sb.ToString());
-                    return true;
-            }
-            catch (Exception exp)
-            {
+                return true;
+            } catch (Exception exp) {
                 MessageBox.Show("创建文件错误:\n" + exp.Message, "Failed");
                 return false;
             }
         }
         private void CreateChannelList()
         {
-            for (Byte i = 0; i < channelNum; i++)
-            {
+            for (Byte i = 0; i < channelNum; i++) {
                 channelView.Items.Add("Channel " + i.ToString());
             }
             channelView.Items[0].Selected = true;
@@ -588,19 +692,19 @@ namespace SEMG.UIL
             if (openToolStripMenuItem.Enabled == true)//还没连上就不要打开了
                 return;
             sampleTime = 0;
-            if (checkVideo.Checked)
-            {
-                zedGraphControl1.Visible = false;
+            zedGraphControl1.Visible = false;
+            zedGraphControl2.Visible = false;
+            pictureBox1.Visible = false;
+            if (checkVideo.Checked) {
                 pictureBox1.Visible = true;
-            }
-            else
-            {
-                pictureBox1.Visible = false;
+            } else if (checkMotion.Checked){
+                zedGraphControl2.Visible = true;
+            } else {
                 zedGraphControl1.Visible = true;
-               
+
             }
-            if(checkRecord.Checked == true)
-                if(!InitWritingFile()) return;
+            if (checkRecord.Checked == true)
+                if (!InitWritingFile()) return;
             btnGetData.Enabled = false;
             checkRecord.Enabled = false;
             btnStop.Enabled = true;
@@ -609,8 +713,7 @@ namespace SEMG.UIL
         }
         private void btnStop_Click(object sender, EventArgs e)
         {
-            if (openToolStripMenuItem.Enabled == true)
-            {
+            if (openToolStripMenuItem.Enabled == true) {
                 MessageBox.Show("Please open the device first");
                 return;
             }
@@ -618,8 +721,7 @@ namespace SEMG.UIL
             checkRecord.Enabled = true;
             btnStop.Enabled = false;
             reset_data_notify();
-            if (fileHelper != null)
-            {
+            if (fileHelper != null) {
                 fileHelper.Flush();//flush data to disk
                 fileHelper.Close();
             }
@@ -633,13 +735,10 @@ namespace SEMG.UIL
 
         private void channelView_ItemChecked(object sender, ItemCheckedEventArgs e)
         {
-            lock (pl)
-            {
-                if (Parameters.showChannelCount < channelView.CheckedIndices.Count)
-                {
+            lock (pl) {
+                if (Parameters.showChannelCount < channelView.CheckedIndices.Count) {
                     //select first 3
-                    for (int i = 0; i < Parameters.showChannelCount; i++)
-                    {
+                    for (int i = 0; i < Parameters.showChannelCount; i++) {
                         channelIndex[i] = channelView.CheckedIndices[i];
                         //TODO process
                         //var f = (from num in channelIndex
@@ -650,40 +749,33 @@ namespace SEMG.UIL
                         {
                             filters.filter_init(ref bw_filters[i]);//init filters
                             pl[i].Clear();
-                            for (int j = 0; j < Parameters.duration; j++)
-                            {
+                            for (int j = 0; j < Parameters.duration; j++) {
                                 pl[i].Add(j, 0);
                             }
 
                         }
                         zedGraphControl1.MasterPane.PaneList[i].YAxis.Title.Text = channelView.CheckedItems[i].Text;
                     }
-                    for (int i = Parameters.showChannelCount; i < channelView.CheckedIndices.Count; i++)
-                    {
+                    for (int i = Parameters.showChannelCount; i < channelView.CheckedIndices.Count; i++) {
                         channelView.CheckedItems[i].Checked = false;
                     }
-                }
-                else
-                {
+                } else {
 
-                    for (int i = 0; i < channelView.CheckedIndices.Count; i++)
-                    {
+                    for (int i = 0; i < channelView.CheckedIndices.Count; i++) {
                         channelIndex[i] = channelView.CheckedIndices[i];
                         pl[i].Clear();
                         filters.filter_init(ref bw_filters[i]);//init filters
-                        for (int j = 0; j < Parameters.duration; j++)
-                        {
+                        for (int j = 0; j < Parameters.duration; j++) {
                             pl[i].Add(j, 0);
                         }
                         zedGraphControl1.MasterPane.PaneList[i].YAxis.Title.Text = channelView.CheckedItems[i].Text;
                     }
-                    for (int i = channelView.CheckedIndices.Count; i < Parameters.showChannelCount; i++)
-                    {
+                    for (int i = channelView.CheckedIndices.Count; i < Parameters.showChannelCount; i++) {
                         channelIndex[i] = -1;
                     }
                 }
             }
-            
+
         }
 
         private void sEMGFrm_Load(object sender, EventArgs e)
@@ -698,8 +790,7 @@ namespace SEMG.UIL
             int btnNum1 = int.Parse(btnText[0]);
             int btnNum2 = int.Parse(btnText[1]);
             clearListChecked();
-            for (int i = btnNum1; i <= btnNum2; i++)
-            {
+            for (int i = btnNum1; i <= btnNum2; i++) {
                 channelView.Items[i].Checked = true;
             }
             channelView.EnsureVisible(btnNum1);
@@ -713,8 +804,7 @@ namespace SEMG.UIL
 
         private void clearListChecked()
         {
-            foreach (ListViewItem lvi in channelView.CheckedItems)
-            {
+            foreach (ListViewItem lvi in channelView.CheckedItems) {
                 lvi.Checked = false;
             }
         }
@@ -735,17 +825,14 @@ namespace SEMG.UIL
         private void CloseDevice()
         {
             this.btnStop_Click(null, null);
-            if (sEMG_close() != 0)
-            {
+            if (sEMG_close() != 0) {
                 openToolStripMenuItem.Enabled = true;
                 closeToolStripMenuItem.Enabled = false;
                 configurationToolStripMenuItem.Enabled = true;
                 channelView.Items.Clear();
                 flowLayoutPanel1.Controls.Clear();
                 bStatus = false;
-            }
-            else
-            {
+            } else {
                 MessageBox.Show("关闭设备失败");
             }
         }
@@ -755,8 +842,7 @@ namespace SEMG.UIL
         /// </summary>
         private void timer1_Tick(object sender, EventArgs e)
         {
-            if (get_dev_stat() != 2)
-            {
+            if (get_dev_stat() != 2) {
                 timer1.Stop();
                 closeToolStripMenuItem_Click(null, null);
                 MessageBox.Show("设备已断开,请重启设备");
@@ -766,8 +852,7 @@ namespace SEMG.UIL
 
         private void CreateActionButtons()
         {
-            foreach(DataRow  dr in Parameters.ActionGroup.Rows)
-            {
+            foreach (DataRow dr in Parameters.ActionGroup.Rows) {
                 RadioButton btn = new RadioButton();
                 btn.Text = dr["ActionName"].ToString();
                 btn.Tag = dr["ActionValue"].ToString();
@@ -775,24 +860,23 @@ namespace SEMG.UIL
                 btn.Size = new Size(50, 23);
                 flowLayoutPanel2.Controls.Add(btn);
             }
-        
+
         }
 
         void btn_CheckedChanged(object sender, EventArgs e)
         {
             RadioButton rb = sender as RadioButton;
-            if(rb.Checked)
-            {
+            if (rb.Checked) {
                 btntext = rb.Tag.ToString();
             }
         }
         private string btntext = "0";
-   
+
         private void sEMGFrm_KeyDown(object sender, KeyEventArgs e)
         {
             selectedAction = btntext;
             progressBar1.Value = 100;
-            
+
         }
 
         private void sEMGFrm_KeyUp(object sender, KeyEventArgs e)
