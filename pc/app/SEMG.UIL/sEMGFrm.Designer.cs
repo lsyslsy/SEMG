@@ -67,6 +67,7 @@
             this.checkVideo = new System.Windows.Forms.RadioButton();
             this.checkMotion = new System.Windows.Forms.RadioButton();
             this.zedGraphControl2 = new ZedGraph.ZedGraphControl();
+            this.comboBox1 = new System.Windows.Forms.ComboBox();
             this.menuStrip1.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this.tabControl1.SuspendLayout();
@@ -429,11 +430,26 @@
             this.zedGraphControl2.TabIndex = 2;
             this.zedGraphControl2.Visible = false;
             // 
+            // comboBox1
+            // 
+            this.comboBox1.FormattingEnabled = true;
+            this.comboBox1.Items.AddRange(new object[] {
+            "0",
+            "1",
+            "2",
+            "3"});
+            this.comboBox1.Location = new System.Drawing.Point(140, 110);
+            this.comboBox1.Name = "comboBox1";
+            this.comboBox1.Size = new System.Drawing.Size(80, 20);
+            this.comboBox1.TabIndex = 15;
+            this.comboBox1.Text = "0";
+            // 
             // sEMGFrm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(835, 579);
+            this.Controls.Add(this.comboBox1);
             this.Controls.Add(this.checkMotion);
             this.Controls.Add(this.checkVideo);
             this.Controls.Add(this.checkGraph);
@@ -512,6 +528,7 @@
         private System.Windows.Forms.RadioButton checkVideo;
         private System.Windows.Forms.RadioButton checkMotion;
         private ZedGraph.ZedGraphControl zedGraphControl2;
+        private System.Windows.Forms.ComboBox comboBox1;
     }
 }
 

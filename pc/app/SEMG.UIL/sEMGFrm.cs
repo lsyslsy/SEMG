@@ -203,7 +203,7 @@ namespace SEMG.UIL
             int sensorSize = Marshal.SizeOf(typeof(sEMGdata)) * 30;
             IntPtr sensorPointer = Marshal.AllocHGlobal(sensorSize);//= &mydata;
             byte[] sensorBytes = new byte[sensorSize];
-            int sensorCount = get_sensor_data(0, 10U, sensorPointer);
+            int sensorCount = get_sensor_data(2,10U, sensorPointer);
             for (int j = 0; j < sensorCount*3; j++) {
                 IntPtr pPonitor = new IntPtr(sensorPointer.ToInt64() + Marshal.SizeOf(typeof(sensorData)) * j);
                 _sensorData[j] = (sensorData)Marshal.PtrToStructure(pPonitor, typeof(sensorData));
@@ -488,8 +488,14 @@ namespace SEMG.UIL
                 myPaneT.XAxis.MinorGrid.IsVisible = true;
                // myPaneT.XAxis.Scale.Max = Parameters.duration/20;
                // myPaneT.XAxis.Scale.Min = 0;
-                myPaneT.YAxis.Scale.Max = 500;
-                myPaneT.YAxis.Scale.Min = -500;
+                if (j < 3) {
+                    myPaneT.YAxis.Scale.Max = 1000;
+                    myPaneT.YAxis.Scale.Min = -1000;
+                } else {
+                    myPaneT.YAxis.Scale.Max = Int16.MaxValue;
+                    myPaneT.YAxis.Scale.Min = Int16.MinValue;
+                }
+                
                 myPaneT.Margin.All = 0;
                 //if (j == 0)
                 //    myPaneT.Margin.Top = 20;
